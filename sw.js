@@ -3,7 +3,7 @@
 // Strategia: Cache-First per asset statici, Network-Only per API
 // ================================================================
 
-const CACHE_NAME = 'argus-v2.0';
+const CACHE_NAME = 'argus-v2.1';  // bump versione → forza aggiornamento cache
 
 const STATIC_ASSETS = [
   './index.html',

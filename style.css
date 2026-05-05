@@ -171,18 +171,27 @@ html, body {
 }
 
 /* ── FAB GROUP (Floating Action Buttons) ────────────────────────── */
-/* FIX: z-index elevato e posizione fissa per evitare che vengano nascosti
-   dalla sidebar o da altri elementi con z-index alto */
+/* Posizione fissa in basso a destra.
+   I controlli zoom Leaflet vengono spostati in bottomleft via JS
+   per evitare sovrapposizioni. */
 .fab-group {
   position: fixed;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 950;   /* sopra la mappa (1) e sotto la sidebar (1000) */
+  right: 16px;
+  bottom: 24px;
+  top: auto;
+  transform: none;
+  z-index: 950;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   pointer-events: auto;
+}
+
+/* Assicura che i controlli Leaflet in basso a sinistra
+   non vengano mai coperti dai FAB */
+.leaflet-bottom.leaflet-left {
+  bottom: 24px !important;
+  left: 16px !important;
 }
 
 .fab {
@@ -918,18 +927,17 @@ input[type="range"]::-moz-range-thumb {
     display: none;
   }
 
-  /* FIX MOBILE: FAB in basso a destra, non al centro verticale */
+  /* Su mobile i FAB sono già in basso a destra (stile desktop),
+     riduciamo solo la dimensione */
   .fab-group {
     right: 12px;
-    top: auto;
-    bottom: 24px;
-    transform: none;
-    flex-direction: column-reverse;
+    bottom: 20px;
+    gap: 8px;
   }
 
   .fab {
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
   }
 
   .toast {
@@ -1217,5 +1225,240 @@ input[type="range"]::-moz-range-thumb {
   .install-banner {
     padding: 12px 16px;
     font-size: 13px;
+  }
+}
+
+/* ================================================================
+   ARGUS v3.0 — Sentinel Real-Time + Auto Risk Analysis styles
+   ================================================================ */
+
+/* ── SENTINEL STATUS BAR ────────────────────────────────────────── */
+.sentinel-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 200, 150, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sentinel-dot, .analysis-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.sentinel-dot.ok, .analysis-dot.ok {
+  background: var(--primary);
+  box-shadow: 0 0 6px var(--primary);
+}
+
+.sentinel-dot.loading, .analysis-dot.running {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: pulse-dot 0.7s infinite;
+}
+
+.sentinel-dot.warn {
+  background: var(--warning);
+  box-shadow: 0 0 6px var(--warning);
+}
+
+.sentinel-dot.error, .analysis-dot.error {
+  background: var(--danger);
+}
+
+.analysis-dot.alert {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+  animation: pulse-dot 1.2s infinite;
+}
+
+/* ── SECONDARY BUTTON ───────────────────────────────────────────── */
+.btn-secondary {
+  width: 100%;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border-accent);
+}
+
+/* ── RISK LEGEND ────────────────────────────────────────────────── */
+.risk-legend {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.risk-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 3px 0;
+}
+
+.risk-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.risk-dot.high {
+  background: rgba(255, 71, 87, 0.7);
+  border: 1px solid #ff4757;
+}
+
+.risk-dot.med {
+  background: rgba(255, 165, 2, 0.5);
+  border: 1px solid #ffa502;
+}
+
+/* ── RISK ZONE PULSE ANIMATION ──────────────────────────────────── */
+@keyframes risk-pulse {
+  0%, 100% { opacity: 0.9; }
+  50%       { opacity: 0.5; }
+}
+
+/* ── INDEX SELECTOR: 4 pulsanti ─────────────────────────────────── */
+.index-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+/* ================================================================
+   ARGUS v3.1 — Sentinel Flight Card + Zoom fix
+   ================================================================ */
+
+/* ── FLIGHT INFO CARD ───────────────────────────────────────────── */
+.flight-card {
+  background: rgba(0, 200, 150, 0.04);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 12px;
+}
+
+.flight-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.flight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.flight-satellite {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.flight-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.flight-card-row:last-of-type {
+  border-bottom: none;
+}
+
+.flight-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.flight-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.flight-value {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.flight-scene-id {
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── ZOOM CONTROL: basso sinistra, non coperto dai FAB ──────────── */
+.leaflet-bottom.leaflet-left .leaflet-control-zoom {
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Su mobile: zoom ancora più in basso a sinistra */
+@media (max-width: 768px) {
+  .leaflet-bottom.leaflet-left {
+    bottom: 16px !important;
+    left: 12px !important;
+  }
+
+  .fab-group {
+    right: 12px;
+    bottom: 16px;
+    gap: 8px;
+  }
+
+  .fab {
+    width: 46px;
+    height: 46px;
   }
 }
