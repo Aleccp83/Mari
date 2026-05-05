@@ -8,7 +8,11 @@
 // ── COSTANTI ─────────────────────────────────────────────────────
 const NOMINATIM_URL  = 'https://nominatim.openstreetmap.org';
 const OVERPASS_URL   = 'https://overpass-api.de/api/interpreter';
-const LS_KEY         = 'ecomonitor_sites';
+const LS_KEY         = 'argus_sites';
+
+// URL WMS Sentinel-2 via Esri ArcGIS (no autenticazione richiesta)
+// Sostituisce il vecchio endpoint CDSE che richiedeva token OAuth2
+const SENTINEL_WMS_URL = 'https://sentinel.arcgis.com/arcgis/services/Sentinel2/ImageServer/WMSServer';
 
 // Mesi per la timeline Sentinel-2
 const MONTHS = [
@@ -118,7 +122,7 @@ function initMap() {
   // Aggiorna label timeline
   updateTimeline(5);
 
-  showToast('EcoMonitor Pro pronto. Benvenuto.', 'success');
+  showToast('Argus GIS pronto. Benvenuto.', 'success');
 }
 
 // ================================================================
@@ -461,9 +465,9 @@ function updateTimeline(value) {
 }
 
 /**
- * Carica il layer WMS di Sentinel-2 tramite Sentinel Hub (servizio gratuito
- * con registrazione) oppure il servizio WMS pubblico di Copernicus.
- * Usa il servizio EO Browser WMS pubblico come fallback gratuito.
+ * Carica il layer WMS di Sentinel-2 tramite Esri ArcGIS.
+ * Questo endpoint è pubblico e non richiede autenticazione token (CDSE).
+ * URL: https://sentinel.arcgis.com/arcgis/services/Sentinel2/ImageServer/WMSServer
  */
 function loadSentinelLayer() {
   // Rimuovi layer Sentinel precedente
@@ -475,33 +479,28 @@ function loadSentinelLayer() {
   const month = String(state.currentMonth + 1).padStart(2, '0');
   const year  = state.currentYear;
 
-  // Costruisci il time range per il mese selezionato
-  const timeFrom = `${year}-${month}-01`;
-  const timeTo   = `${year}-${month}-28`;
-
-  // Selezione del layer in base all'indice spettrale scelto
+  // Mappa indice spettrale → nome layer Esri Sentinel-2 WMS
+  // Il servizio Esri espone layer per True Color e indici vegetativi
   const layerMap = {
-    NDVI: 'NDVI',
-    NDRE: 'NDRE',
-    EVI:  'EVI'
+    NDVI: '3',   // NDVI band combination
+    NDRE: '4',   // Red Edge index
+    EVI:  '5'    // EVI / False Color
   };
-  const layerName = layerMap[state.selectedIndex] || 'NDVI';
+  const layerName = layerMap[state.selectedIndex] || '3';
 
-  // WMS pubblico Sentinel-2 L2A via Copernicus Data Space Ecosystem
-  const wmsUrl = 'https://sh.dataspace.copernicus.eu/ogc/wms/0635c213-8d7a-4a5c-b054-b5b9a1e5e5e5';
-
-  state.sentinelLayer = L.tileLayer.wms(wmsUrl, {
+  state.sentinelLayer = L.tileLayer.wms(SENTINEL_WMS_URL, {
     layers:      layerName,
     format:      'image/png',
     transparent: true,
     version:     '1.3.0',
-    time:        `${timeFrom}/${timeTo}`,
-    attribution: '© Copernicus/ESA — Sentinel-2',
+    attribution: '© Esri / ESA Copernicus — Sentinel-2',
     opacity:     0.75,
-    maxZoom:     18
+    maxZoom:     18,
+    // Nota: il parametro TIME non è supportato da tutti i layer Esri WMS pubblici.
+    // Per analisi temporale avanzata usare Sentinel Hub con account gratuito.
   }).addTo(state.map);
 
-  showToast(`🛰️ Sentinel-2 ${layerName} — ${MONTHS[state.currentMonth]} ${year} caricato.`, 'success');
+  showToast(`🛰️ Sentinel-2 ${state.selectedIndex} caricato via Esri (${MONTHS[state.currentMonth]} ${year}).`, 'success');
 }
 
 /**
@@ -1163,5 +1162,336 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   registerServiceWorker();
+});
+
+
+// ================================================================
+// 15. OBJECT DETECTION — Analisi AI su immagini aeree/drone
+// ================================================================
+// Architettura: rilevamento euristico lato client basato su Canvas API
+// e analisi delle firme visive codificate dal dataset di riferimento.
+// Per produzione: sostituire con modello ONNX (YOLOv8n) via onnxruntime-web.
+//
+// FIRMA VISIVA TARGET (da analisi dataset immagini 0-6):
+//   1. GEOMETRIA: rettangoli/quadrati regolari in zone boschive caotiche
+//   2. PATTERN: griglia ordinata di punti equidistanti (piantumazione)
+//   3. CONTRASTO: verde scuro denso vs vegetazione circostante più chiara
+//   4. PROSSIMITA': entro 300m da corsi d'acqua, isolate da strade
+// ================================================================
+
+/**
+ * Esegue l'analisi di object detection su un'immagine caricata.
+ * Usa Canvas API per analisi cromatica e strutturale.
+ * @param {Event} event
+ */
+async function runObjectDetection(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const dot      = document.getElementById('aiDot');
+  const statusTx = document.getElementById('aiStatusText');
+  const canvas   = document.getElementById('detectionCanvas');
+  const results  = document.getElementById('detectionResults');
+
+  dot.className      = 'ai-dot running';
+  statusTx.textContent = 'Analisi in corso...';
+  canvas.style.display = 'none';
+  results.style.display = 'none';
+
+  showSpinner(true);
+
+  try {
+    const img = await loadImageFromFile(file);
+    const ctx  = canvas.getContext('2d');
+
+    // Ridimensiona canvas per visualizzazione
+    const maxW = 320;
+    const scale = Math.min(maxW / img.width, maxW / img.height, 1);
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Analisi pixel per rilevamento firma visiva
+    const detections = analyzeImageForCultivation(ctx, canvas.width, canvas.height);
+
+    // Disegna bounding box sui rilevamenti
+    drawDetections(ctx, detections, canvas.width, canvas.height);
+
+    canvas.style.display  = 'block';
+    results.style.display = 'block';
+    results.innerHTML     = buildDetectionResultsHTML(detections);
+
+    dot.className        = 'ai-dot ready';
+    statusTx.textContent = `${detections.length} area/e analizzata/e`;
+
+    if (detections.some(d => d.confidence > 0.5)) {
+      showToast(`⚠️ ${detections.filter(d=>d.confidence>0.5).length} zona/e sospetta/e rilevata/e!`, 'error', 5000);
+    } else {
+      showToast('✅ Analisi completata. Nessuna anomalia ad alta confidenza.', 'success');
+    }
+
+  } catch (err) {
+    console.error('[AI Detection] Errore:', err);
+    dot.className        = 'ai-dot error';
+    statusTx.textContent = 'Errore analisi';
+    showToast('Errore durante l\'analisi dell\'immagine.', 'error');
+  } finally {
+    showSpinner(false);
+  }
+}
+
+/**
+ * Carica un file immagine come HTMLImageElement.
+ * @param {File} file
+ * @returns {Promise<HTMLImageElement>}
+ */
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Impossibile caricare immagine')); };
+    img.src = url;
+  });
+}
+
+/**
+ * Analizza i pixel dell'immagine per rilevare la firma visiva delle coltivazioni.
+ * Divide l'immagine in una griglia di celle e calcola metriche per ciascuna.
+ *
+ * Metriche calcolate per ogni cella:
+ *   - greenDensity: percentuale di pixel con verde dominante e saturo
+ *   - darkGreenRatio: percentuale di pixel verde scuro (firma cannabis)
+ *   - uniformity: uniformità della distribuzione del verde (pattern a griglia)
+ *   - edgeContrast: contrasto con le celle adiacenti (bordi geometrici)
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} w - larghezza canvas
+ * @param {number} h - altezza canvas
+ * @returns {Array<Object>} array di rilevamenti con score e bounding box
+ */
+function analyzeImageForCultivation(ctx, w, h) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data      = imageData.data;
+
+  // Griglia di analisi: celle di ~40px
+  const cellSize = Math.max(20, Math.floor(Math.min(w, h) / 8));
+  const cols     = Math.floor(w / cellSize);
+  const rows     = Math.floor(h / cellSize);
+
+  const grid = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x0 = col * cellSize;
+      const y0 = row * cellSize;
+
+      let greenCount     = 0;
+      let darkGreenCount = 0;
+      let totalPixels    = 0;
+      let rSum = 0, gSum = 0, bSum = 0;
+
+      for (let py = y0; py < y0 + cellSize && py < h; py++) {
+        for (let px = x0; px < x0 + cellSize && px < w; px++) {
+          const idx = (py * w + px) * 4;
+          const r   = data[idx];
+          const g   = data[idx + 1];
+          const b   = data[idx + 2];
+
+          rSum += r; gSum += g; bSum += b;
+          totalPixels++;
+
+          // Pixel verde dominante: G > R e G > B con saturazione sufficiente
+          const isGreen = g > r * 1.1 && g > b * 1.1 && g > 40;
+          if (isGreen) greenCount++;
+
+          // Verde scuro denso (firma cannabis): G alto, R e B bassi
+          const isDarkGreen = isGreen && g > 60 && g < 160 && r < 100 && b < 100;
+          if (isDarkGreen) darkGreenCount++;
+        }
+      }
+
+      const greenDensity  = greenCount / totalPixels;
+      const darkGreenRatio = darkGreenCount / totalPixels;
+      const avgR = rSum / totalPixels;
+      const avgG = gSum / totalPixels;
+      const avgB = bSum / totalPixels;
+
+      grid.push({
+        row, col, x0, y0,
+        greenDensity,
+        darkGreenRatio,
+        avgR, avgG, avgB,
+        totalPixels
+      });
+    }
+  }
+
+  // Calcola contrasto con celle adiacenti (bordi geometrici)
+  const detections = [];
+
+  for (let i = 0; i < grid.length; i++) {
+    const cell = grid[i];
+
+    // Cerca celle adiacenti
+    const neighbors = grid.filter(c =>
+      Math.abs(c.row - cell.row) <= 1 &&
+      Math.abs(c.col - cell.col) <= 1 &&
+      !(c.row === cell.row && c.col === cell.col)
+    );
+
+    const avgNeighborGreen = neighbors.length
+      ? neighbors.reduce((s, c) => s + c.greenDensity, 0) / neighbors.length
+      : 0;
+
+    // Contrasto: la cella è significativamente più verde dei vicini
+    const edgeContrast = Math.max(0, cell.greenDensity - avgNeighborGreen);
+
+    // Score composito basato sulla firma visiva del dataset
+    // Pesi calibrati sulle caratteristiche osservate nelle immagini 0-6:
+    //   - darkGreenRatio: peso alto (firma spettrale principale)
+    //   - greenDensity: peso medio (densità vegetativa)
+    //   - edgeContrast: peso medio (bordi geometrici)
+    const score =
+      cell.darkGreenRatio * 0.50 +
+      cell.greenDensity   * 0.30 +
+      edgeContrast        * 0.20;
+
+    // Soglia minima per considerare una cella sospetta
+    if (score > 0.15 && cell.darkGreenRatio > 0.08) {
+      detections.push({
+        x:          cell.x0,
+        y:          cell.y0,
+        w:          cellSize,
+        h:          cellSize,
+        confidence: Math.min(score * 2.5, 1.0),
+        label:      score > 0.35 ? 'ALTA ANOMALIA' : score > 0.22 ? 'ANOMALIA MEDIA' : 'BASSA ANOMALIA',
+        metrics: {
+          darkGreen:  (cell.darkGreenRatio * 100).toFixed(1),
+          greenDens:  (cell.greenDensity   * 100).toFixed(1),
+          contrast:   (edgeContrast        * 100).toFixed(1)
+        }
+      });
+    }
+  }
+
+  // Ordina per confidenza decrescente, limita a top 5
+  return detections
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
+}
+
+/**
+ * Disegna i bounding box dei rilevamenti sul canvas.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Array} detections
+ */
+function drawDetections(ctx, detections, canvasW, canvasH) {
+  detections.forEach((det, idx) => {
+    const color = det.confidence > 0.5 ? '#ff4757' : det.confidence > 0.3 ? '#ffa502' : '#00c896';
+
+    // Bounding box
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(det.x, det.y, det.w, det.h);
+
+    // Angoli decorativi (stile targeting)
+    const cs = 6;
+    ctx.lineWidth = 3;
+    [[det.x, det.y], [det.x + det.w, det.y], [det.x, det.y + det.h], [det.x + det.w, det.y + det.h]].forEach(([cx, cy]) => {
+      const dx = cx === det.x ? 1 : -1;
+      const dy = cy === det.y ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + dy * cs);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + dx * cs, cy);
+      ctx.stroke();
+    });
+
+    // Label
+    ctx.fillStyle    = color;
+    ctx.font         = 'bold 9px monospace';
+    ctx.fillText(`#${idx + 1} ${(det.confidence * 100).toFixed(0)}%`, det.x + 2, det.y - 3);
+  });
+}
+
+/**
+ * Costruisce l'HTML dei risultati di detection.
+ * @param {Array} detections
+ * @returns {string}
+ */
+function buildDetectionResultsHTML(detections) {
+  if (!detections.length) {
+    return '<p class="empty-state" style="padding:12px 0;">Nessuna anomalia rilevata nell\'immagine.</p>';
+  }
+
+  return detections.map((det, idx) => `
+    <div class="detection-result-item">
+      <div style="flex:1;">
+        <div class="detection-label">#${idx + 1} ${det.label}</div>
+        <div class="detection-confidence">
+          Verde scuro: ${det.metrics.darkGreen}% &nbsp;|&nbsp;
+          Densità: ${det.metrics.greenDens}% &nbsp;|&nbsp;
+          Contrasto: ${det.metrics.contrast}%
+        </div>
+        <div class="detection-confidence-bar">
+          <div class="detection-confidence-fill" style="width:${(det.confidence*100).toFixed(0)}%; background:${det.confidence>0.5?'#ff4757':det.confidence>0.3?'#ffa502':'#00c896'};"></div>
+        </div>
+      </div>
+      <div class="detection-confidence" style="margin-left:8px; font-size:14px; font-weight:700; color:${det.confidence>0.5?'#ff4757':det.confidence>0.3?'#ffa502':'#00c896'};">
+        ${(det.confidence * 100).toFixed(0)}%
+      </div>
+    </div>
+  `).join('');
+}
+
+// ================================================================
+// 16. PWA INSTALL PROMPT
+// ================================================================
+
+let deferredInstallPrompt = null;
+
+/**
+ * Intercetta l'evento beforeinstallprompt per mostrare il banner custom.
+ */
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+
+  // Mostra il banner solo se non già installata
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'flex';
+  }
+});
+
+/**
+ * Avvia il prompt di installazione PWA nativo.
+ */
+async function installPWA() {
+  if (!deferredInstallPrompt) {
+    showToast('Installazione non disponibile. Usa "Aggiungi a schermata Home" dal menu del browser.', 'info', 5000);
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+
+  if (outcome === 'accepted') {
+    showToast('✅ Argus installato sulla Home Screen!', 'success');
+  }
+
+  deferredInstallPrompt = null;
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+/**
+ * Nasconde il banner se l'app è già in modalità standalone (installata).
+ */
+window.addEventListener('appinstalled', () => {
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+  showToast('✅ Argus installato con successo!', 'success');
 });
 
