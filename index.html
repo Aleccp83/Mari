@@ -133,21 +133,19 @@
         </label>
       </section>
 
-      <!-- INDICI SPETTRALI -->
+      <!-- INDICI SPETTRALI — SELEZIONE MULTIPLA -->
       <section class="panel-section">
         <h3 class="section-title">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Indici Spettrali (Sentinel-2)
+          Indici Spettrali — Selezione Multipla
         </h3>
-        <div class="index-selector">
-          <button class="index-btn active" id="btnTRUE" onclick="selectIndex('TRUE')" aria-pressed="true">RGB</button>
-          <button class="index-btn" id="btnNDVI" onclick="selectIndex('NDVI')" aria-pressed="false">NDVI</button>
-          <button class="index-btn" id="btnNDRE" onclick="selectIndex('NDRE')" aria-pressed="false">NDRE</button>
-          <button class="index-btn" id="btnEVI" onclick="selectIndex('EVI')" aria-pressed="false">EVI</button>
-        </div>
-        <p class="index-desc" id="indexDesc">
-          <strong>True Color</strong> — RGB naturale Sentinel-2 (B04/B03/B02). Visualizzazione reale del territorio con risoluzione 10m/pixel.
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">
+          Seleziona uno o più indici. Vengono caricati in sovrapposizione sincronizzata.
         </p>
+        <!-- Pulsanti generati dinamicamente da JS -->
+        <div id="indexBtnContainer" class="index-selector-multi"></div>
+        <!-- Descrizione indici attivi -->
+        <div class="index-desc" id="indexDesc"></div>
       </section>
 
       <!-- SENTINEL-2 REAL-TIME -->
@@ -302,7 +300,7 @@
 
     <footer class="sidebar-footer">
       Idea di <strong>Alessandro P.</strong> — Generata da <strong>Emanuele D.</strong><br/>
-      <span>Argus v2.0 · Leaflet · Turf.js · OSM · Sentinel-2 via Esri</span>
+      <span>Argus v1.0 beta · Leaflet · Turf.js · OSM · Sentinel-2 · NASA MODIS</span>
     </footer>
 
   </aside>

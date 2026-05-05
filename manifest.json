@@ -1,7 +1,7 @@
 {
   "name": "Argus — GIS Investigativo",
   "short_name": "Argus",
-  "description": "Sistema di analisi predittiva satellitare per l'individuazione di coltivazioni illecite in zone rurali e montane.",
+  "description": "Sistema GIS predittivo per l'individuazione di coltivazioni illecite. v1.0 beta",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
