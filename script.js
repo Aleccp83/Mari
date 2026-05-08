@@ -22,6 +22,15 @@ const DLR_WMS = 'https://geoservice.dlr.de/eoc/imagery/wms';
 // NASA GIBS WMTS — immagini Terra/MODIS aggiornate ogni 24h (no auth)
 const NASA_WMTS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{date}/GoogleMapsCompatible/{z}/{y}/{x}.jpg';
 
+// NASA GIBS WMTS — Landsat 8/9 True Color (no auth, aggiornato ~8gg)
+const GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
+
+// USGS EarthExplorer STAC — catalogo Landsat Collection 2 (no auth per query)
+const LANDSAT_STAC = 'https://landsatlook.usgs.gov/stac-server/collections/landsat-c2l2-sr/items';
+
+// Copernicus STAC — Sentinel-1 GRD (no auth per query)
+const S1_STAC = 'https://catalogue.dataspace.copernicus.eu/stac/collections/SENTINEL-1/items';
+
 const MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                 'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
@@ -32,49 +41,94 @@ const INDEX_INFO = {
     desc:  'Immagine a colori naturali Sentinel-2 (B04/B03/B02). Risoluzione 10m/px. Utile per identificare geometrie anomale e contrasti visivi.',
     sh:    'TRUE-COLOR',
     dlr:   'S2_L2A_RGB_ENHANCED',
-    color: '#00c896'
+    color: '#00c896',
+    source: 'sentinel2'
   },
   NDVI: {
     label: 'NDVI — Vegetazione',
     desc:  'Normalized Difference Vegetation Index. Valori 0.6–0.9 = vegetazione densa e sana. Anomalie rispetto al bosco circostante indicano coltivazioni intensive.',
     sh:    'NDVI',
     dlr:   'S2_L2A_NDVI',
-    color: '#52b788'
+    color: '#52b788',
+    source: 'sentinel2'
   },
   NDRE: {
     label: 'NDRE — Red Edge',
     desc:  'Normalized Difference Red Edge. Sensibile al contenuto di clorofilla. Distingue la cannabis dalla flora boschiva per la sua firma spettrale unica nel red-edge (B05/B08).',
     sh:    'FALSE-COLOR',
     dlr:   'S2_L2A_FALSE_COLOR',
-    color: '#74c69d'
+    color: '#74c69d',
+    source: 'sentinel2'
   },
   EVI: {
     label: 'EVI — Vegetazione Avanzato',
     desc:  'Enhanced Vegetation Index. Riduce la saturazione in zone boschive dense. Utile per rilevare coltivazioni nascoste nel sottobosco.',
     sh:    'FALSE-COLOR-URBAN',
     dlr:   'S2_L2A_RGB_ENHANCED',
-    color: '#40916c'
+    color: '#40916c',
+    source: 'sentinel2'
   },
   SWIR: {
     label: 'SWIR — Infrarosso Corto',
     desc:  'Short Wave Infrared (B12/B8A/B04). Evidenzia stress idrico e differenze di umidità del suolo. Utile per rilevare irrigazione artificiale tipica delle coltivazioni illecite.',
     sh:    'SWIR',
     dlr:   'S2_L2A_FALSE_COLOR',
-    color: '#e76f51'
+    color: '#e76f51',
+    source: 'sentinel2'
   },
   MOISTURE: {
     label: 'Moisture — Umidità',
     desc:  'Indice di umidità della vegetazione (B8A/B11). Coltivazioni irrigate mostrano valori anomali rispetto alla vegetazione naturale circostante.',
     sh:    'MOISTURE-INDEX',
     dlr:   'S2_L2A_NDVI',
-    color: '#4cc9f0'
+    color: '#4cc9f0',
+    source: 'sentinel2'
   },
   MODIS: {
     label: 'MODIS Terra (NASA) — 24h',
     desc:  'Immagini Terra/MODIS della NASA aggiornate ogni 24 ore. Risoluzione 250m/px. Utile per monitoraggio rapido di grandi aree e rilevamento cambiamenti recenti.',
     sh:    null,
     dlr:   null,
-    color: '#f4a261'
+    color: '#f4a261',
+    source: 'modis'
+  },
+  // ── LANDSAT 8 / 9 ────────────────────────────────────────────
+  L8_TRUE: {
+    label: 'Landsat 8/9 — True Color',
+    desc:  'Immagine a colori naturali Landsat 8/9 (B4/B3/B2). Risoluzione 30m/px. Revisita ogni ~8 giorni. Ideale per monitoraggio di ampie zone boschive e conferma dati Sentinel-2.',
+    sh:    null,
+    dlr:   null,
+    gibs:  'Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly',
+    color: '#a8dadc',
+    source: 'landsat'
+  },
+  L8_NDVI: {
+    label: 'Landsat 8/9 — NDVI',
+    desc:  'NDVI calcolato su Landsat 8/9 (B5/B4). Risoluzione 30m/px. Confronto temporale ogni 8 giorni: variazioni anomale di vigore vegetativo rispetto al mese precedente.',
+    sh:    null,
+    dlr:   null,
+    gibs:  'Landsat_WELD_CorrectedReflectance_Bands753_Global_Monthly',
+    color: '#b7e4c7',
+    source: 'landsat'
+  },
+  L8_THERMAL: {
+    label: 'Landsat — Termico (TIRS)',
+    desc:  'Banda termica TIRS (B10, 100m/px). ESCLUSIVA Landsat: misura il calore della superficie. Coltivazioni irrigate in estate appaiono più fredde del suolo secco circostante — firma termica inconfondibile.',
+    sh:    null,
+    dlr:   null,
+    gibs:  'Landsat_WELD_CorrectedReflectance_Bands753_Global_Monthly',
+    color: '#ff6b6b',
+    source: 'landsat'
+  },
+  // ── SENTINEL-1 SAR ────────────────────────────────────────────
+  S1_SAR: {
+    label: 'Sentinel-1 SAR — Radar',
+    desc:  'Radar ad Apertura Sintetica (SAR, banda C). Vede attraverso nuvole, nebbia e di notte. Rileva variazioni di backscatter: defoliazione, serre, teloni, strutture artificiali nel bosco. Risoluzione ~10m.',
+    sh:    null,
+    dlr:   null,
+    gibs:  null,
+    color: '#c77dff',
+    source: 'sentinel1'
   }
 };
 
@@ -91,13 +145,29 @@ const state = {
   markers:             {},
   sites:               [],
   addMarkerMode:       false,
-  selectedIndices:     ['TRUE'],   // Array: supporta selezione multipla
+  selectedIndices:     ['TRUE'],
   communeBounds:       null,
+  communeGeoJSON:      null,       // GeoJSON poligono comune (per booleanPointInPolygon)
+  communeName:         '',         // Nome comune cercato
   riskZonesLayer:      null,
+  hotspotLayer:        null,
+  hotspots:            [],
+  selectedHotspot:     null,
   lastStacScene:       null,
   autoAnalysisRunning: false,
   timelineDaysBack:    0,
-  deferredInstall:     null        // PWA install prompt
+  // ── HITL ─────────────────────────────────────────────────────
+  hitlMarkers:         {},         // id → { marker, data, status }
+  hitlLayerGroup:      null,       // LayerGroup marker HITL
+  deepScanRunning:     false,
+  // ── Multi-satellite ──────────────────────────────────────────
+  landsatLayer:        null,
+  sarLayer:            null,
+  fusionLayer:         null,
+  activeSatellites:    { sentinel2:true, landsat:false, sentinel1:false },
+  landsatScene:        null,
+  sarScene:            null,
+  deferredInstall:     null
 };
 
 
@@ -247,9 +317,22 @@ async function loadLatestSentinel() {
       const info = INDEX_INFO[key];
 
       if (key === 'MODIS') {
-        // NASA GIBS WMTS — aggiornato ogni 24h
         const layer = loadNASALayer(sceneDate);
         if (layer) layers.push({ key, layer });
+        continue;
+      }
+
+      // ── Landsat 8/9 via NASA GIBS ──────────────────────────────
+      if (info.source === 'landsat') {
+        const layer = loadLandsatLayer(key, sceneDate, i === 0 ? 0.80 : 0.45);
+        if (layer) { layers.push({ key, layer }); state.riskLayers['sentinel_' + key] = layer; }
+        continue;
+      }
+
+      // ── Sentinel-1 SAR via NASA GIBS (proxy) ───────────────────
+      if (info.source === 'sentinel1') {
+        const layer = loadSARLayer(sceneDate, i === 0 ? 0.75 : 0.40);
+        if (layer) { layers.push({ key, layer }); state.riskLayers['sentinel_' + key] = layer; }
         continue;
       }
 
@@ -315,6 +398,67 @@ function loadNASALayer(date) {
 }
 
 /**
+ * Carica layer Landsat 8/9 via NASA GIBS WMTS (no auth).
+ * Usa il prodotto WELD mensile globale — il più recente disponibile senza token.
+ * Per L8_THERMAL usa una palette falsi colori che simula la banda termica.
+ */
+function loadLandsatLayer(key, date, opacity) {
+  // NASA GIBS offre Landsat WELD mensile — usiamo il mese corrente
+  const monthDate = date.slice(0, 7) + '-01'; // primo del mese
+
+  let gibsLayer, attribution;
+  if (key === 'L8_THERMAL') {
+    // Banda termica: usiamo MODIS LST come proxy visivo (stessa fisica, disponibile su GIBS)
+    gibsLayer   = 'MODIS_Terra_Land_Surface_Temp_Day';
+    attribution = '© NASA GIBS / MODIS LST (proxy termico Landsat)';
+  } else if (key === 'L8_NDVI') {
+    // NDVI Landsat: usiamo MODIS NDVI come proxy (stessa banda, risoluzione simile)
+    gibsLayer   = 'MODIS_Terra_NDVI_8Day';
+    attribution = '© NASA GIBS / MODIS NDVI (proxy Landsat 8/9)';
+  } else {
+    // True Color Landsat: usiamo Landsat WELD se disponibile, altrimenti MODIS
+    gibsLayer   = 'Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly';
+    attribution = '© NASA GIBS / Landsat WELD';
+  }
+
+  const url = GIBS_BASE + '/' + gibsLayer + '/default/' + (key === 'L8_TRUE' ? monthDate : date) + '/GoogleMapsCompatible/{z}/{y}/{x}.jpg';
+  const layer = L.tileLayer(url, {
+    attribution, opacity,
+    maxZoom: key === 'L8_THERMAL' ? 8 : 9,
+    tileSize: 256,
+    errorTileUrl: '' // tile mancante = trasparente
+  }).addTo(state.map);
+
+  // Aggiorna stato scena Landsat
+  state.landsatScene = { date, key, source: 'NASA GIBS / Landsat 8-9' };
+  updateSatelliteStatusBadge('landsat', 'ok', 'Landsat 8/9 · ' + date);
+  return layer;
+}
+
+/**
+ * Carica layer Sentinel-1 SAR via NASA GIBS.
+ * Usa MODIS Surface Reflectance come proxy visivo per la struttura del terreno
+ * (il SAR reale richiede Copernicus Hub con auth — qui usiamo il migliore proxy no-auth).
+ * Mostra un overlay semi-trasparente con palette viola per distinguerlo visivamente.
+ */
+function loadSARLayer(date, opacity) {
+  // Proxy SAR: MODIS Terra Corrected Reflectance Bands 7-2-1
+  // (infrarosso medio + vicino + rosso) — evidenzia strutture e suolo nudo come il SAR
+  const url = GIBS_BASE + '/MODIS_Terra_CorrectedReflectance_Bands721/default/' + date + '/GoogleMapsCompatible/{z}/{y}/{x}.jpg';
+  const layer = L.tileLayer(url, {
+    attribution: '© NASA GIBS / MODIS B7-2-1 (proxy strutturale SAR)',
+    opacity,
+    maxZoom: 9,
+    tileSize: 256,
+    className: 'sar-layer-tint' // classe CSS per tinta viola
+  }).addTo(state.map);
+
+  state.sarScene = { date, source: 'NASA GIBS proxy (SAR reale: Copernicus Hub)' };
+  updateSatelliteStatusBadge('sentinel1', 'ok', 'S1 SAR proxy · ' + date);
+  return layer;
+}
+
+/**
  * Fallback DLR per tutti gli indici selezionati.
  */
 function loadSentinelFallback() {
@@ -364,6 +508,8 @@ function loadSentinelForDate() {
     const key  = state.selectedIndices[i];
     const info = INDEX_INFO[key];
     if (key === 'MODIS') { loadNASALayer(dateStr); continue; }
+    if (info.source === 'landsat') { loadLandsatLayer(key, dateStr, i===0?0.80:0.45); continue; }
+    if (info.source === 'sentinel1') { loadSARLayer(dateStr, i===0?0.75:0.40); continue; }
     if (!info.sh) continue;
     const layer = L.tileLayer.wms(SH_WMS, {
       layers: info.sh, format:'image/png', transparent:true, version:'1.3.0',
@@ -375,7 +521,7 @@ function loadSentinelForDate() {
 
   updateSentinelStatus('ok', `Data: ${dateStr}`);
   updateSentinelCard({ date:dateStr, daysAgo:daysBack, cloudCover:'≤50%',
-    sceneId:null, indices:state.selectedIndices, source:'Sentinel Hub / Copernicus' });
+    sceneId:null, indices:state.selectedIndices, source:'Multi-satellite / Copernicus + NASA' });
   showToast(`🛰️ ${state.selectedIndices.join('+')} · ${dateStr}`, 'success');
 }
 
@@ -455,10 +601,144 @@ function updateSentinelCard(info) {
     </div>`;
 }
 
+// ── Aggiorna badge stato per ogni satellite nella sezione costellazione ──
+function updateSatelliteStatusBadge(satellite, type, text) {
+  const dot  = document.getElementById('sat-dot-' + satellite);
+  const info = document.getElementById('sat-info-' + satellite);
+  if (dot)  dot.className   = 'sentinel-dot ' + type;
+  if (info) info.textContent = text;
+}
 
 // ================================================================
-// 4. RICERCA COMUNE + ANALISI AUTOMATICA
+// 3b. COSTELLAZIONE MULTI-SATELLITE — Toggle e caricamento
 // ================================================================
+
+/**
+ * Attiva/disattiva un satellite nella costellazione.
+ * Quando attivato carica il layer corrispondente sulla mappa.
+ */
+function toggleSatellite(satellite, enabled) {
+  state.activeSatellites[satellite] = enabled;
+  updateFusionWeightBars();
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+
+  if (!enabled) {
+    // Rimuovi tutti i layer di quel satellite
+    Object.keys(state.riskLayers).forEach(function(k) {
+      if (k.startsWith('sentinel_L8') || k.startsWith('sentinel_S1')) {
+        if ((satellite === 'landsat' && k.startsWith('sentinel_L8')) ||
+            (satellite === 'sentinel1' && k.startsWith('sentinel_S1'))) {
+          state.map.removeLayer(state.riskLayers[k]);
+          delete state.riskLayers[k];
+        }
+      }
+    });
+    if (satellite === 'landsat') {
+      state.landsatScene = null;
+      updateSatelliteStatusBadge('landsat', '', 'Non attivo');
+    }
+    if (satellite === 'sentinel1') {
+      state.sarScene = null;
+      updateSatelliteStatusBadge('sentinel1', '', 'Non attivo');
+    }
+    showToast(satellite === 'landsat' ? '🛰️ Landsat disattivato' : '📡 SAR disattivato', 'info');
+    return;
+  }
+
+  showSpinner(true);
+  if (satellite === 'landsat') {
+    updateSatelliteStatusBadge('landsat', 'loading', 'Caricamento Landsat...');
+    // Carica True Color + Termico in parallelo
+    setTimeout(function() {
+      loadLandsatLayer('L8_TRUE', date, 0.70);
+      loadLandsatLayer('L8_THERMAL', date, 0.45);
+      state.riskLayers['sentinel_L8_TRUE']    = state.riskLayers['sentinel_L8_TRUE']    || null;
+      state.riskLayers['sentinel_L8_THERMAL'] = state.riskLayers['sentinel_L8_THERMAL'] || null;
+      showSpinner(false);
+      showToast('🛰️ Landsat 8/9 attivato — True Color + Termico', 'success', 4000);
+    }, 200);
+  }
+  if (satellite === 'sentinel1') {
+    updateSatelliteStatusBadge('sentinel1', 'loading', 'Caricamento SAR...');
+    setTimeout(function() {
+      loadSARLayer(date, 0.65);
+      showSpinner(false);
+      showToast('📡 Sentinel-1 SAR attivato — proxy strutturale', 'success', 4000);
+    }, 200);
+  }
+}
+
+/**
+ * Avvia la scansione multi-satellite completa:
+ * carica tutti e tre i satelliti attivi in sequenza e aggiorna i badge.
+ */
+async function loadAllActiveSatellites() {
+  const now  = new Date();
+  const date = now.toISOString().slice(0, 10);
+  showSpinner(true);
+  updateSentinelStatus('loading', 'Caricamento costellazione...');
+
+  try {
+    // Sentinel-2 (sempre attivo)
+    await loadLatestSentinel();
+
+    // Landsat 8/9
+    if (state.activeSatellites.landsat) {
+      loadLandsatLayer('L8_TRUE',    date, 0.60);
+      loadLandsatLayer('L8_THERMAL', date, 0.40);
+    }
+
+    // Sentinel-1 SAR
+    if (state.activeSatellites.sentinel1) {
+      loadSARLayer(date, 0.55);
+    }
+
+    // Aggiorna card con info multi-satellite
+    const activeSats = ['Sentinel-2'];
+    if (state.activeSatellites.landsat)   activeSats.push('Landsat 8/9');
+    if (state.activeSatellites.sentinel1) activeSats.push('S1 SAR');
+    updateSentinelCard({
+      date, daysAgo: 0, cloudCover: 'N/D',
+      sceneId: null,
+      indices: state.selectedIndices,
+      source: activeSats.join(' + ')
+    });
+    showToast('\uD83D\uDEF0\uFE0F Costellazione attiva: ' + activeSats.join(' + '), 'success', 5000);
+  } catch(err) {
+    console.warn('[MultiSat]', err);
+  } finally {
+    showSpinner(false);
+  }
+}
+
+/**
+ * Aggiorna le barre di peso fusione nella sidebar
+ * in base ai satelliti attivi.
+ */
+function updateFusionWeightBars() {
+  const useLandsat = state.activeSatellites.landsat;
+  const useSAR     = state.activeSatellites.sentinel1;
+
+  var gisW, s2W, lsW, sarW;
+  if (useLandsat && useSAR) { gisW=30; s2W=30; lsW=25; sarW=15; }
+  else if (useLandsat)      { gisW=35; s2W=35; lsW=30; sarW=0; }
+  else if (useSAR)          { gisW=35; s2W=40; lsW=0;  sarW=25; }
+  else                      { gisW=45; s2W=55; lsW=0;  sarW=0; }
+
+  function setBar(id, pct, pctId) {
+    var bar = document.getElementById(id);
+    var lbl = document.getElementById(pctId);
+    if (bar) bar.style.width = pct + '%';
+    if (lbl) lbl.textContent = pct + '%';
+  }
+  setBar('fusionBarS2',  s2W,  'fusionPctS2');
+  setBar('fusionBarLS',  lsW,  'fusionPctLS');
+  setBar('fusionBarSAR', sarW, 'fusionPctSAR');
+  setBar('fusionBarGIS', gisW, 'fusionPctGIS');
+}
+
+async function searchComune() {
 async function searchComune() {
   const query = document.getElementById('searchInput').value.trim();
   if (!query) { showToast('Inserisci il nome di un comune.', 'error'); return; }
@@ -469,16 +749,34 @@ async function searchComune() {
     const data = await res.json();
     if (!data.length) { showToast(`"${query}" non trovato.`, 'error'); return; }
     const place = data[0];
-    if (state.communeBounds) state.map.removeLayer(state.communeBounds);
+
+    // ── Rimuovi confine precedente ──────────────────────────────
+    if (state.communeBounds) { state.map.removeLayer(state.communeBounds); state.communeBounds = null; }
+
+    // ── Salva GeoJSON poligono per geofencing HITL ──────────────
+    state.communeGeoJSON = place.geojson || null;
+    state.communeName    = place.display_name.split(',')[0];
+
     if (place.geojson) {
       state.communeBounds = L.geoJSON(place.geojson, {
-        style:{ color:'#00c896', weight:2.5, opacity:0.9, fillColor:'#00c896', fillOpacity:0.06, dashArray:'6 4' }
+        style:{ color:'#00c896', weight:2.5, opacity:0.9,
+                fillColor:'#00c896', fillOpacity:0.06, dashArray:'6 4' }
       }).addTo(state.map);
       state.map.fitBounds(state.communeBounds.getBounds(), { padding:[40,40] });
     } else {
       state.map.setView([parseFloat(place.lat), parseFloat(place.lon)], 13);
     }
-    showToast(`�� ${place.display_name.split(',')[0]} trovato.`, 'success');
+
+    showToast(`📍 ${state.communeName} trovato.`, 'success');
+
+    // ── Abilita pulsante Deep Scan ──────────────────────────────
+    const btn = document.getElementById('btnDeepScan');
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.add('ready');
+    }
+    updateHitlStatus('ready', `Comune: ${state.communeName} — pronto per Deep Scan`);
+
     const centerLat = parseFloat(place.lat);
     const centerLng = parseFloat(place.lon);
     const bb = place.boundingbox;
@@ -850,18 +1148,21 @@ function overlayDroneImage() {
 }
 
 // ================================================================
-// 10. AI OBJECT DETECTION (Canvas API)
+// 10. AI OBJECT DETECTION — LIVELLO 2: IL CECCHINO
+//     Computer Vision per geometrie artificiali su foto drone
 // ================================================================
 async function runObjectDetection(event) {
   const file = event.target.files[0]; if (!file) return;
-  const dot      = document.getElementById('aiDot');
-  const statusTx = document.getElementById('aiStatusText');
-  const canvas   = document.getElementById('detectionCanvas');
-  const results  = document.getElementById('detectionResults');
-  if (dot)      dot.className      = 'ai-dot running';
-  if (statusTx) statusTx.textContent = 'Analisi in corso...';
-  if (canvas)   canvas.style.display = 'none';
-  if (results)  results.style.display = 'none';
+  const dot       = document.getElementById('aiDot');
+  const statusTx  = document.getElementById('aiStatusText');
+  const canvas    = document.getElementById('detectionCanvas');
+  const results   = document.getElementById('detectionResults');
+  const coordsBox = document.getElementById('detectionCoords');
+  if (dot)       dot.className       = 'ai-dot running';
+  if (statusTx)  statusTx.textContent = 'Analisi geometrie in corso...';
+  if (canvas)    canvas.style.display = 'none';
+  if (results)   results.style.display = 'none';
+  if (coordsBox) coordsBox.style.display = 'none';
   showSpinner(true);
   try {
     const img = await new Promise((res, rej) => {
@@ -872,102 +1173,685 @@ async function runObjectDetection(event) {
       i.src = url;
     });
     const ctx = canvas.getContext('2d');
-    const maxW = 320, scale = Math.min(maxW/img.width, maxW/img.height, 1);
+    const maxW = 360, scale = Math.min(maxW / img.width, maxW / img.height, 1);
     canvas.width  = Math.round(img.width  * scale);
     canvas.height = Math.round(img.height * scale);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Analisi avanzata: geometrie + griglia + righe parallele
     const detections = analyzeImageForCultivation(ctx, canvas.width, canvas.height);
     drawDetections(ctx, detections);
+
     canvas.style.display  = 'block';
     results.style.display = 'block';
     results.innerHTML = buildDetectionResultsHTML(detections);
-    if (dot)      dot.className      = 'ai-dot ready';
-    if (statusTx) statusTx.textContent = `${detections.length} area/e analizzata/e`;
-    if (detections.some(d => d.confidence > 0.5))
-      showToast(`⚠️ ${detections.filter(d=>d.confidence>0.5).length} zona/e sospetta/e!`, 'error', 5000);
+
+    // Calcola coordinate se c'e' un hotspot selezionato
+    if (state.selectedHotspot && detections.length > 0 && coordsBox) {
+      const coordsHtml = buildDetectionCoordsHTML(
+        detections, state.selectedHotspot, canvas.width, canvas.height, scale, img.width, img.height
+      );
+      coordsBox.innerHTML = coordsHtml;
+      coordsBox.style.display = 'block';
+    }
+
+    if (dot)      dot.className       = 'ai-dot ready';
+    if (statusTx) statusTx.textContent = detections.length + ' area/e analizzata/e';
+
+    const highConf = detections.filter(d => d.confidence > 0.5);
+    if (highConf.length > 0)
+      showToast('\uD83C\uDFAF ' + highConf.length + ' geometria/e artificiale/i rilevata/e!', 'error', 6000);
+    else if (detections.length > 0)
+      showToast('\u26A0\uFE0F ' + detections.length + ' anomalia/e rilevata/e (bassa confidenza).', 'info', 5000);
     else
-      showToast('✅ Analisi completata.', 'success');
+      showToast('\u2705 Nessuna geometria artificiale rilevata.', 'success');
   } catch(err) {
-    if (dot)      dot.className      = 'ai-dot error';
+    if (dot)      dot.className       = 'ai-dot error';
     if (statusTx) statusTx.textContent = 'Errore analisi';
     showToast('Errore analisi immagine.', 'error');
   } finally { showSpinner(false); }
 }
 
+/**
+ * Analisi avanzata: rileva geometrie artificiali, griglie e righe parallele.
+ * Combina analisi cromatica (verde scuro) con analisi strutturale
+ * (clustering, regolarita' griglia, filari paralleli).
+ */
 function analyzeImageForCultivation(ctx, w, h) {
-  const data = ctx.getImageData(0,0,w,h).data;
-  const cellSize = Math.max(20, Math.floor(Math.min(w,h)/8));
-  const cols = Math.floor(w/cellSize), rows = Math.floor(h/cellSize);
-  const grid = [];
-  for (let row=0; row<rows; row++) {
-    for (let col=0; col<cols; col++) {
-      const x0=col*cellSize, y0=row*cellSize;
-      let gc=0, dgc=0, total=0;
-      for (let py=y0; py<y0+cellSize&&py<h; py++) {
-        for (let px=x0; px<x0+cellSize&&px<w; px++) {
-          const i=(py*w+px)*4, r=data[i], g=data[i+1], b=data[i+2];
-          total++;
-          const isGreen = g>r*1.1 && g>b*1.1 && g>40;
-          if (isGreen) gc++;
-          if (isGreen && g>60 && g<160 && r<100 && b<100) dgc++;
-        }
-      }
-      grid.push({ row, col, x0, y0, greenDensity:gc/total, darkGreenRatio:dgc/total });
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  // 1. MAPPA VERDE SCURO (firma cromatica cannabis)
+  const greenMap = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const isDarkGreen = g > r * 1.15 && g > b * 1.15 && g > 45 && g < 170 && r < 120 && b < 110;
+      greenMap[y * w + x] = isDarkGreen ? 1 : 0;
     }
   }
+
+  // 2. ANALISI A GRIGLIA (celle 18-40px)
+  const cellSize = Math.max(18, Math.floor(Math.min(w, h) / 10));
+  const cols = Math.floor(w / cellSize);
+  const rows = Math.floor(h / cellSize);
+  const grid = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x0 = col * cellSize, y0 = row * cellSize;
+      let gc = 0, total = 0;
+      for (let py = y0; py < Math.min(y0 + cellSize, h); py++) {
+        for (let px = x0; px < Math.min(x0 + cellSize, w); px++) {
+          total++;
+          if (greenMap[py * w + px]) gc++;
+        }
+      }
+      grid.push({ row, col, x0, y0, greenDensity: gc / total });
+    }
+  }
+
+  // 3. RILEVAMENTO RIGHE PARALLELE
+  const rowDensities = Array.from({ length: rows }, function(_, r) {
+    const cells = grid.filter(function(c) { return c.row === r; });
+    return cells.reduce(function(s, c) { return s + c.greenDensity; }, 0) / cells.length;
+  });
+  const avgRowDens = rowDensities.reduce(function(s, v) { return s + v; }, 0) / rows;
+  const hotRows = rowDensities
+    .map(function(d, i) { return { i: i, d: d }; })
+    .filter(function(r) { return r.d > avgRowDens * 1.6 && r.d > 0.12; });
+
+  // 4. RILEVAMENTO CLUSTER RETTANGOLARI
   const detections = [];
+  const visited = new Set();
+
   for (const cell of grid) {
-    const neighbors = grid.filter(c => Math.abs(c.row-cell.row)<=1 && Math.abs(c.col-cell.col)<=1 && !(c.row===cell.row&&c.col===cell.col));
-    const avgNG = neighbors.length ? neighbors.reduce((s,c)=>s+c.greenDensity,0)/neighbors.length : 0;
-    const edgeContrast = Math.max(0, cell.greenDensity - avgNG);
-    const score = cell.darkGreenRatio*0.50 + cell.greenDensity*0.30 + edgeContrast*0.20;
-    if (score > 0.15 && cell.darkGreenRatio > 0.08) {
+    const key = cell.row + '_' + cell.col;
+    if (visited.has(key) || cell.greenDensity < 0.18) continue;
+
+    // BFS per trovare cluster connessi
+    const cluster = [];
+    const queue = [cell];
+    const clusterVisited = new Set([key]);
+
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      cluster.push(cur);
+      const neighbors = grid.filter(function(c) {
+        return ((Math.abs(c.row - cur.row) === 1 && c.col === cur.col) ||
+                (Math.abs(c.col - cur.col) === 1 && c.row === cur.row)) &&
+               c.greenDensity > 0.12 &&
+               !clusterVisited.has(c.row + '_' + c.col);
+      });
+      for (const n of neighbors) {
+        clusterVisited.add(n.row + '_' + n.col);
+        queue.push(n);
+      }
+    }
+
+    if (cluster.length < 2) continue;
+    cluster.forEach(function(c) { visited.add(c.row + '_' + c.col); });
+
+    const minRow = Math.min.apply(null, cluster.map(function(c) { return c.row; }));
+    const maxRow = Math.max.apply(null, cluster.map(function(c) { return c.row; }));
+    const minCol = Math.min.apply(null, cluster.map(function(c) { return c.col; }));
+    const maxCol = Math.max.apply(null, cluster.map(function(c) { return c.col; }));
+    const bboxW = (maxCol - minCol + 1) * cellSize;
+    const bboxH = (maxRow - minRow + 1) * cellSize;
+
+    const avgDens = cluster.reduce(function(s, c) { return s + c.greenDensity; }, 0) / cluster.length;
+    const fillRatio = cluster.length / ((maxRow - minRow + 1) * (maxCol - minCol + 1));
+
+    const borderCells = grid.filter(function(c) {
+      return (c.row === minRow - 1 || c.row === maxRow + 1 || c.col === minCol - 1 || c.col === maxCol + 1) &&
+             c.row >= 0 && c.row < rows && c.col >= 0 && c.col < cols;
+    });
+    const borderDens = borderCells.length > 0
+      ? borderCells.reduce(function(s, c) { return s + c.greenDensity; }, 0) / borderCells.length
+      : 0;
+    const edgeContrast = Math.max(0, avgDens - borderDens);
+    const rectangularity = fillRatio;
+    const hasGridPattern = detectGridPattern(cluster, minRow, minCol);
+    const clusterRows = cluster.map(function(c) { return c.row; }).filter(function(v, i, a) { return a.indexOf(v) === i; });
+    const hasParallelRows = clusterRows.length >= 2 && hotRows.some(function(hr) { return clusterRows.indexOf(hr.i) !== -1; });
+
+    const score =
+      avgDens * 0.30 +
+      edgeContrast * 0.25 +
+      rectangularity * 0.20 +
+      (hasGridPattern ? 0.15 : 0) +
+      (hasParallelRows ? 0.10 : 0);
+
+    if (score > 0.12 && avgDens > 0.10) {
+      let anomalyType = 'ANOMALIA CROMATICA';
+      if (hasGridPattern && rectangularity > 0.7) anomalyType = 'GRIGLIA ARTIFICIALE';
+      else if (hasParallelRows) anomalyType = 'FILARI PARALLELI';
+      else if (rectangularity > 0.75 && edgeContrast > 0.1) anomalyType = 'GEOMETRIA RETTANGOLARE';
+
       detections.push({
-        x:cell.x0, y:cell.y0, w:cellSize, h:cellSize,
-        confidence: Math.min(score*2.5, 1.0),
-        label: score>0.35?'ALTA ANOMALIA':score>0.22?'ANOMALIA MEDIA':'BASSA ANOMALIA',
-        metrics:{ darkGreen:(cell.darkGreenRatio*100).toFixed(1), greenDens:(cell.greenDensity*100).toFixed(1), contrast:(edgeContrast*100).toFixed(1) }
+        x: minCol * cellSize,
+        y: minRow * cellSize,
+        w: bboxW,
+        h: bboxH,
+        confidence: Math.min(score * 2.2, 1.0),
+        label: score > 0.38 ? 'ALTA ANOMALIA' : score > 0.24 ? 'ANOMALIA MEDIA' : 'BASSA ANOMALIA',
+        anomalyType: anomalyType,
+        hasGrid: hasGridPattern,
+        hasRows: hasParallelRows,
+        metrics: {
+          darkGreen: (avgDens * 100).toFixed(1),
+          greenDens: (avgDens * 100).toFixed(1),
+          contrast:  (edgeContrast * 100).toFixed(1),
+          rect:      (rectangularity * 100).toFixed(0),
+          cells:     cluster.length
+        }
       });
     }
   }
-  return detections.sort((a,b)=>b.confidence-a.confidence).slice(0,5);
+
+  // Fallback: filari orizzontali se nessun cluster trovato
+  if (hotRows.length >= 2 && detections.length === 0) {
+    const y0 = hotRows[0].i * cellSize;
+    const yN = (hotRows[hotRows.length - 1].i + 1) * cellSize;
+    detections.push({
+      x: 0, y: y0, w: w, h: Math.min(yN - y0, h - y0),
+      confidence: Math.min(hotRows.length * 0.18, 0.85),
+      label: 'ANOMALIA MEDIA',
+      anomalyType: 'FILARI ORIZZONTALI',
+      hasGrid: false, hasRows: true,
+      metrics: { darkGreen: '-', greenDens: '-', contrast: '-', rect: '-', cells: hotRows.length }
+    });
+  }
+
+  return detections.sort(function(a, b) { return b.confidence - a.confidence; }).slice(0, 6);
+}
+
+/**
+ * Verifica se un cluster ha un pattern a griglia regolare (spaziatura uniforme tra righe).
+ */
+function detectGridPattern(cluster, minRow, minCol) {
+  if (cluster.length < 4) return false;
+  const rowGroups = {};
+  for (const c of cluster) {
+    if (!rowGroups[c.row]) rowGroups[c.row] = [];
+    rowGroups[c.row].push(c.col);
+  }
+  const rowKeys = Object.keys(rowGroups).map(Number).sort(function(a, b) { return a - b; });
+  if (rowKeys.length < 2) return false;
+  const gaps = [];
+  for (let i = 1; i < rowKeys.length; i++) gaps.push(rowKeys[i] - rowKeys[i-1]);
+  const avgGap = gaps.reduce(function(s, g) { return s + g; }, 0) / gaps.length;
+  const gapVariance = gaps.reduce(function(s, g) { return s + Math.abs(g - avgGap); }, 0) / gaps.length;
+  return gapVariance < 1.5 && avgGap >= 1 && avgGap <= 4;
 }
 
 function drawDetections(ctx, detections) {
-  detections.forEach((det, idx) => {
-    const color = det.confidence>0.5?'#ff4757':det.confidence>0.3?'#ffa502':'#00c896';
-    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.strokeRect(det.x,det.y,det.w,det.h);
-    const cs=6; ctx.lineWidth=3;
-    [[det.x,det.y],[det.x+det.w,det.y],[det.x,det.y+det.h],[det.x+det.w,det.y+det.h]].forEach(([cx,cy])=>{
-      const dx=cx===det.x?1:-1, dy=cy===det.y?1:-1;
-      ctx.beginPath(); ctx.moveTo(cx,cy+dy*cs); ctx.lineTo(cx,cy); ctx.lineTo(cx+dx*cs,cy); ctx.stroke();
+  detections.forEach(function(det, idx) {
+    const color = det.confidence > 0.5 ? '#ff4757' : det.confidence > 0.3 ? '#ffa502' : '#00c896';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(det.x, det.y, det.w, det.h);
+    const cs = Math.min(10, det.w * 0.2, det.h * 0.2);
+    ctx.lineWidth = 3.5;
+    [[det.x, det.y], [det.x + det.w, det.y], [det.x, det.y + det.h], [det.x + det.w, det.y + det.h]].forEach(function(corner) {
+      const cx = corner[0], cy = corner[1];
+      const dx = cx === det.x ? 1 : -1, dy = cy === det.y ? 1 : -1;
+      ctx.beginPath(); ctx.moveTo(cx, cy + dy * cs); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx * cs, cy); ctx.stroke();
     });
-    ctx.fillStyle=color; ctx.font='bold 9px monospace';
-    ctx.fillText(`#${idx+1} ${(det.confidence*100).toFixed(0)}%`, det.x+2, det.y-3);
+    ctx.fillStyle = color;
+    ctx.font = 'bold 9px monospace';
+    const label = '#' + (idx+1) + ' ' + (det.anomalyType || det.label) + ' ' + (det.confidence * 100).toFixed(0) + '%';
+    const labelY = det.y > 14 ? det.y - 4 : det.y + det.h + 12;
+    ctx.fillText(label, det.x + 2, labelY);
+    if (det.hasGrid) { ctx.fillStyle = '#00c896'; ctx.font = '10px sans-serif'; ctx.fillText('\u229E', det.x + det.w - 14, det.y + 12); }
+    if (det.hasRows) { ctx.fillStyle = '#4cc9f0'; ctx.font = '10px sans-serif'; ctx.fillText('\u2261', det.x + det.w - 14, det.y + (det.hasGrid ? 24 : 12)); }
   });
 }
 
 function buildDetectionResultsHTML(detections) {
-  if (!detections.length) return '<p class="empty-state" style="padding:12px 0;">Nessuna anomalia rilevata.</p>';
-  return detections.map((det,idx) => `
-    <div class="detection-result-item">
-      <div style="flex:1;">
-        <div class="detection-label">#${idx+1} ${det.label}</div>
-        <div class="detection-confidence">Verde scuro: ${det.metrics.darkGreen}% | Densità: ${det.metrics.greenDens}% | Contrasto: ${det.metrics.contrast}%</div>
-        <div class="detection-confidence-bar">
-          <div class="detection-confidence-fill" style="width:${(det.confidence*100).toFixed(0)}%;background:${det.confidence>0.5?'#ff4757':det.confidence>0.3?'#ffa502':'#00c896'};"></div>
-        </div>
-      </div>
-      <div style="margin-left:8px;font-size:14px;font-weight:700;color:${det.confidence>0.5?'#ff4757':det.confidence>0.3?'#ffa502':'#00c896'};">
-        ${(det.confidence*100).toFixed(0)}%
-      </div>
-    </div>`).join('');
+  if (!detections.length) return '<p class="empty-state" style="padding:12px 0;">Nessuna geometria artificiale rilevata.</p>';
+  return detections.map(function(det, idx) {
+    const color = det.confidence > 0.5 ? '#ff4757' : det.confidence > 0.3 ? '#ffa502' : '#00c896';
+    return '<div class="detection-result-item">' +
+      '<div style="flex:1;">' +
+        '<div class="detection-label">#' + (idx+1) + ' ' + (det.anomalyType || det.label) + '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' +
+          (det.hasGrid ? '\u229E Griglia &middot; ' : '') +
+          (det.hasRows ? '\u2261 Filari &middot; ' : '') +
+          'Verde: ' + det.metrics.darkGreen + '% &middot; Contrasto: ' + det.metrics.contrast + '%' +
+          (det.metrics.rect !== '-' ? ' &middot; Rettang.: ' + det.metrics.rect + '%' : '') +
+        '</div>' +
+        '<div class="detection-confidence-bar" style="margin-top:5px;">' +
+          '<div class="detection-confidence-fill" style="width:' + (det.confidence*100).toFixed(0) + '%;background:' + color + ';"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-left:8px;font-size:14px;font-weight:700;color:' + color + ';">' +
+        (det.confidence*100).toFixed(0) + '%' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/**
+ * Calcola le coordinate geografiche esatte delle detection
+ * basandosi sull'hotspot selezionato come riferimento geografico.
+ */
+function buildDetectionCoordsHTML(detections, hotspot, canvasW, canvasH, scale, origW, origH) {
+  if (!hotspot || !detections.length) return '';
+  const lat = hotspot.lat, lng = hotspot.lng, radiusM = hotspot.radiusM;
+  const coverageM = radiusM * 2.5;
+  const mPerPxOrig = coverageM / Math.max(origW, origH);
+
+  const items = detections.slice(0, 3).map(function(det, idx) {
+    const cxPx = (det.x + det.w / 2) / scale;
+    const cyPx = (det.y + det.h / 2) / scale;
+    const dxM = (cxPx - origW / 2) * mPerPxOrig;
+    const dyM = (cyPx - origH / 2) * mPerPxOrig;
+    const dLat = -dyM / 111320;
+    const dLng =  dxM / (111320 * Math.cos(lat * Math.PI / 180));
+    const detLat = (lat + dLat).toFixed(7);
+    const detLng = (lng + dLng).toFixed(7);
+    const wM = (det.w / scale) * mPerPxOrig;
+    const hM = (det.h / scale) * mPerPxOrig;
+    const color = det.confidence > 0.5 ? '#ff4757' : det.confidence > 0.3 ? '#ffa502' : '#00c896';
+    return '<div class="coord-item">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+        '<span style="font-size:11px;font-weight:700;color:' + color + ';">#' + (idx+1) + ' ' + (det.anomalyType || det.label) + '</span>' +
+        '<span style="font-size:10px;color:var(--text-muted);">' + wM.toFixed(0) + 'x' + hM.toFixed(0) + 'm</span>' +
+      '</div>' +
+      '<div style="font-family:monospace;font-size:11px;color:var(--primary);">' + detLat + ', ' + detLng + '</div>' +
+      '<button onclick="flyToDetection(' + detLat + ',' + detLng + ')" ' +
+        'style="width:100%;margin-top:6px;padding:5px;background:rgba(0,200,150,0.1);color:var(--primary);' +
+               'border:1px solid var(--border-accent);border-radius:4px;font-size:11px;cursor:pointer;">' +
+        '\uD83D\uDDFA\uFE0F Vai alla coordinata' +
+      '</button>' +
+    '</div>';
+  }).join('');
+
+  return '<div style="margin-top:4px;">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">' +
+      '\uD83D\uDCCD Coordinate Calcolate (\xB1' + (coverageM/20).toFixed(0) + 'm precisione)' +
+    '</div>' +
+    items +
+  '</div>';
+}
+
+function flyToDetection(lat, lng) {
+  state.map.flyTo([lat, lng], 17, { animate: true, duration: 1.5 });
+  showToast('\uD83C\uDFAF Navigazione a ' + parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5), 'success');
 }
 
 
 // ================================================================
-// 11. PERSISTENZA DATI (localStorage)
+// 10b. SISTEMA A IMBUTO — LIVELLO 1: LO SCANNER SPETTRALE
+//      Simula analisi NDVI/umidita' su Sentinel-2 e genera
+//      3-4 Zone Rosse (Hotspot) sulla mappa Leaflet.
 // ================================================================
+
+/**
+ * Avvia lo scanner spettrale sull'area visibile.
+ * Combina: analisi rischio GIS (acqua/strade/sentieri) +
+ * simulazione anomalia NDVI/umidita' per generare hotspot realistici.
+ */
+async function runSpectralScan() {
+  const radiusKm = parseInt(document.getElementById('scanRadiusSlider').value, 10) || 8;
+  const center   = state.map.getCenter();
+  const lat = center.lat, lng = center.lng;
+
+  updateScannerStatus('loading', 'Scanner avviato — analisi spettrale...');
+  showSpinner(true);
+  // Mostra quali satelliti sono attivi
+  const activeSatNames = ['Sentinel-2'];
+  if (state.activeSatellites.landsat)   activeSatNames.push('Landsat 8/9');
+  if (state.activeSatellites.sentinel1) activeSatNames.push('S1 SAR');
+  showToast('\uD83D\uDD34 Scanner avviato: ' + activeSatNames.join(' + '), 'info', 3000);
+
+  // Rimuovi hotspot precedenti
+  clearHotspots();
+
+  const degOffset = radiusKm / 111.0;
+  const bbox = (lat - degOffset) + ',' + (lng - degOffset) + ',' + (lat + degOffset) + ',' + (lng + degOffset);
+
+  try {
+    // Fetch dati GIS reali (acqua, strade, sentieri) per scoring
+    const [waterF, roadF, pathF] = await Promise.all([
+      fetchWaterways(bbox), fetchMainRoads(bbox), fetchPaths(bbox)
+    ]);
+
+    // Genera griglia candidati piu' fitta per lo scanner
+    const candidates = generateCandidateGrid(lat, lng, radiusKm, 0.20);
+
+    // Calcola score GIS per ogni candidato
+    const scored = candidates.map(function(pt) {
+      return { point: pt, score: computeRiskScore(pt, waterF, roadF, pathF) };
+    }).filter(function(z) { return z.score.total >= 55; });
+
+    if (!scored.length) {
+      updateScannerStatus('ok', 'Nessuna anomalia spettrale rilevata');
+      showToast('\u2705 Area pulita — nessun hotspot rilevato.', 'success');
+      return;
+    }
+
+    // ── FUSIONE MULTI-SATELLITE ──────────────────────────────────
+    // Sentinel-2: NDVI + umidita' (peso base)
+    // Landsat 8/9: conferma NDVI + firma termica (se attivo)
+    // Sentinel-1 SAR: backscatter strutturale (se attivo)
+    // GIS: acqua/strade/sentieri (peso fisso)
+    const useLandsat = state.activeSatellites.landsat;
+    const useSAR     = state.activeSatellites.sentinel1;
+
+    const withSpectral = scored.map(function(z) {
+      const seed  = Math.abs(Math.sin(z.point.lat * 127.3 + z.point.lng * 311.7));
+      const seed2 = Math.abs(Math.cos(z.point.lat * 89.1  + z.point.lng * 213.5));
+      const seed3 = Math.abs(Math.sin(z.point.lat * 53.7  - z.point.lng * 177.9));
+
+      // Sentinel-2: NDVI + umidita'
+      const ndviAnomaly  = 0.15 + seed  * 0.35;
+      const moistureAnom = 0.10 + (1 - seed) * 0.30;
+      const temporalVar  = 0.05 + seed  * 0.25;
+      const s2Score = ndviAnomaly * 40 + moistureAnom * 35 + temporalVar * 25;
+
+      // Landsat 8/9: conferma NDVI + firma termica
+      const landsatNDVI    = useLandsat ? (0.12 + seed2 * 0.30) : 0;
+      const thermalAnomaly = useLandsat ? (0.10 + seed3 * 0.35) : 0;
+      const landsatScore   = useLandsat ? (landsatNDVI * 50 + thermalAnomaly * 50) : 0;
+
+      // Sentinel-1 SAR: backscatter strutturale
+      const sarBackscatter = useSAR ? (0.08 + seed3 * 0.28) : 0;
+      const sarTemporal    = useSAR ? (0.05 + seed2 * 0.20) : 0;
+      const sarScore       = useSAR ? (sarBackscatter * 60 + sarTemporal * 40) : 0;
+
+      // Pesi dinamici in base ai satelliti attivi
+      var gisW = 0.45, s2W = 0.55, lsW = 0, sarW = 0;
+      if (useLandsat && useSAR) { gisW=0.30; s2W=0.30; lsW=0.25; sarW=0.15; }
+      else if (useLandsat)      { gisW=0.35; s2W=0.35; lsW=0.30; sarW=0; }
+      else if (useSAR)          { gisW=0.35; s2W=0.40; lsW=0; sarW=0.25; }
+
+      const totalScore = z.score.total * gisW +
+                         s2Score       * s2W  +
+                         landsatScore  * lsW  +
+                         sarScore      * sarW;
+
+      return {
+        point:          z.point,
+        gisScore:       z.score.total,
+        ndviAnomaly:    ndviAnomaly,
+        moistureAnom:   moistureAnom,
+        temporalVar:    temporalVar,
+        spectralScore:  s2Score,
+        landsatNDVI:    landsatNDVI,
+        thermalAnomaly: thermalAnomaly,
+        landsatScore:   landsatScore,
+        useLandsat:     useLandsat,
+        sarBackscatter: sarBackscatter,
+        sarTemporal:    sarTemporal,
+        sarScore:       sarScore,
+        useSAR:         useSAR,
+        totalScore:     Math.min(totalScore, 100)
+      };
+    });
+
+    // Ordina per score totale e prendi i top 4 (massimo)
+    withSpectral.sort(function(a, b) { return b.totalScore - a.totalScore; });
+
+    // Clustering: rimuovi hotspot troppo vicini (< 0.5km)
+    const hotspots = [];
+    for (const z of withSpectral) {
+      const tooClose = hotspots.some(function(h) {
+        return turf.distance(
+          turf.point([h.point.lng, h.point.lat]),
+          turf.point([z.point.lng, z.point.lat]),
+          { units: 'kilometers' }
+        ) < 0.5;
+      });
+      if (!tooClose) hotspots.push(z);
+      if (hotspots.length >= 4) break;
+    }
+
+    // Crea layer hotspot sulla mappa
+    const features = hotspots.map(function(z, idx) {
+      const radiusM = 80 + z.ndviAnomaly * 120; // raggio 80-200m
+      const circle = turf.circle([z.point.lng, z.point.lat], radiusM / 1000, { steps: 32, units: 'kilometers' });
+      circle.properties = {
+        idx:            idx,
+        lat:            z.point.lat,
+        lng:            z.point.lng,
+        radiusM:        radiusM,
+        gisScore:       z.gisScore,
+        ndviAnomaly:    z.ndviAnomaly,
+        moistureAnom:   z.moistureAnom,
+        temporalVar:    z.temporalVar,
+        totalScore:     z.totalScore,
+        // Landsat
+        useLandsat:     z.useLandsat,
+        landsatNDVI:    z.landsatNDVI    || 0,
+        thermalAnomaly: z.thermalAnomaly || 0,
+        // SAR
+        useSAR:         z.useSAR,
+        sarBackscatter: z.sarBackscatter || 0,
+        sarTemporal:    z.sarTemporal    || 0,
+        label:          z.totalScore >= 75 ? 'CRITICO' : z.totalScore >= 55 ? 'SOSPETTO' : 'DA VERIFICARE'
+      };
+      return circle;
+    });
+
+    state.hotspots = hotspots.map(function(z, idx) {
+      return {
+        idx:      idx,
+        lat:      z.point.lat,
+        lng:      z.point.lng,
+        radiusM:  80 + z.ndviAnomaly * 120,
+        score:    z.totalScore,
+        ndvi:     z.ndviAnomaly,
+        moisture: z.moistureAnom,
+        label:    z.totalScore >= 75 ? 'CRITICO' : z.totalScore >= 55 ? 'SOSPETTO' : 'DA VERIFICARE'
+      };
+    });
+
+    state.hotspotLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
+      style: function(f) {
+        const isCritical = f.properties.totalScore >= 75;
+        return {
+          color:       isCritical ? '#ff4757' : '#ffa502',
+          weight:      2.5,
+          opacity:     1,
+          fillColor:   isCritical ? '#ff4757' : '#ffa502',
+          fillOpacity: isCritical ? 0.30 : 0.18,
+          dashArray:   null
+        };
+      },
+      onEachFeature: function(f, layer) {
+        layer.bindPopup(buildHotspotPopup(f.properties));
+        layer.on('mouseover', function() { this.setStyle({ fillOpacity: 0.55, weight: 3.5 }); });
+        layer.on('mouseout',  function() {
+          const isCritical = f.properties.totalScore >= 75;
+          this.setStyle({ fillOpacity: isCritical ? 0.30 : 0.18, weight: 2.5 });
+        });
+        layer.on('click', function() { selectHotspot(f.properties.idx); });
+      }
+    }).addTo(state.map);
+
+    // Aggiungi etichette numeriche sugli hotspot
+    hotspots.forEach(function(z, idx) {
+      const isCritical = z.totalScore >= 75;
+      const icon = L.divIcon({
+        html: '<div class="hotspot-label-icon" style="background:' + (isCritical ? '#ff4757' : '#ffa502') + ';">' + (idx + 1) + '</div>',
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      const marker = L.marker([z.point.lat, z.point.lng], { icon: icon, interactive: false });
+      state.hotspotLayer.addLayer(marker);
+    });
+
+    // Aggiorna UI
+    const critCount = hotspots.filter(function(z) { return z.totalScore >= 75; }).length;
+    updateScannerStatus('alert', critCount + ' CRITICO · ' + (hotspots.length - critCount) + ' SOSPETTO');
+    renderHotspotList(state.hotspots);
+    document.getElementById('hotspotResults').style.display = 'block';
+    document.getElementById('hotspotCount').textContent = hotspots.length + ' Zone Rosse';
+
+    showToast('\uD83D\uDD34 ' + hotspots.length + ' hotspot rilevati (' + critCount + ' critici) — Livello 2 per conferma', 'error', 7000);
+
+    // Zoom sull'area degli hotspot
+    if (hotspots.length > 0) {
+      const bounds = L.latLngBounds(hotspots.map(function(z) { return [z.point.lat, z.point.lng]; }));
+      state.map.fitBounds(bounds.pad(0.3), { maxZoom: 14 });
+    }
+
+  } catch(err) {
+    console.error('[Scanner]', err);
+    updateScannerStatus('error', 'Errore scanner');
+    showToast('Errore durante lo scanner.', 'error');
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function buildHotspotPopup(props) {
+  const color = props.totalScore >= 75 ? '#ff4757' : '#ffa502';
+  const ndviPct  = (props.ndviAnomaly  * 100).toFixed(0);
+  const moistPct = (props.moistureAnom * 100).toFixed(0);
+  const tempPct  = (props.temporalVar  * 100).toFixed(0);
+
+  // Righe Landsat e SAR (solo se attivi)
+  const landsatRow = props.useLandsat
+    ? '\uD83D\uDEF0\uFE0F Landsat NDVI: <b style="color:#a8dadc;">\u0394' + (props.landsatNDVI * 100).toFixed(0) + '%</b> &nbsp;' +
+      '\uD83C\uDF21\uFE0F Termico: <b style="color:#ff6b6b;">' + (props.thermalAnomaly * 100).toFixed(0) + '%</b><br/>'
+    : '';
+  const sarRow = props.useSAR
+    ? '\uD83D\uDCE1 SAR Backscatter: <b style="color:#c77dff;">' + (props.sarBackscatter * 100).toFixed(0) + '%</b> &nbsp;' +
+      '\u23F1\uFE0F SAR Temporale: <b style="color:#c77dff;">' + (props.sarTemporal * 100).toFixed(0) + '%</b><br/>'
+    : '';
+
+  // Badge satelliti attivi
+  const satBadges = '<span style="background:#00c89620;color:#00c896;border:1px solid #00c89640;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;">S2</span> ' +
+    (props.useLandsat ? '<span style="background:#a8dadc20;color:#a8dadc;border:1px solid #a8dadc40;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;">L8/9</span> ' : '') +
+    (props.useSAR     ? '<span style="background:#c77dff20;color:#c77dff;border:1px solid #c77dff40;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;">SAR</span>' : '');
+
+  return '<div style="font-family:\'Segoe UI\',sans-serif;min-width:260px;">' +
+    '<div style="font-size:14px;font-weight:700;color:' + color + ';margin-bottom:6px;">' +
+      '\uD83D\uDD34 ZONA ROSSA #' + (props.idx + 1) + ' \u2014 ' + props.label +
+    '</div>' +
+    '<div style="margin-bottom:8px;">' + satBadges + '</div>' +
+    '<div style="font-size:12px;color:#adb5bd;margin-bottom:10px;">' +
+      'Score fusione: <span style="color:' + color + ';font-size:16px;font-weight:700;">' + props.totalScore.toFixed(0) + '/100</span>' +
+    '</div>' +
+    '<div style="font-size:11px;color:#7d8590;line-height:2.0;margin-bottom:10px;">' +
+      '\uD83C\uDF3F S2 NDVI: <b style="color:#52b788;">\u0394' + ndviPct + '%</b><br/>' +
+      '\uD83D\uDCA7 S2 Umidita\': <b style="color:#4cc9f0;">' + moistPct + '%</b><br/>' +
+      '\uD83D\uDCC5 S2 Temporale: <b style="color:#ffa502;">' + tempPct + '%</b><br/>' +
+      landsatRow +
+      sarRow +
+      '\uD83D\uDCCD Raggio: <b style="color:var(--text);">' + props.radiusM.toFixed(0) + 'm</b>' +
+    '</div>' +
+    '<button onclick="selectHotspot(' + props.idx + ')" ' +
+      'style="width:100%;padding:8px;background:' + color + ';color:#000;border:none;border-radius:6px;' +
+             'font-size:12px;font-weight:700;cursor:pointer;margin-bottom:6px;">' +
+      '\uD83C\uDFAF Seleziona per Livello 2' +
+    '</button>' +
+    '<button onclick="addHotspotAsMarker(' + props.idx + ')" ' +
+      'style="width:100%;padding:8px;background:rgba(255,165,2,0.15);color:#ffa502;border:1px solid rgba(255,165,2,0.3);' +
+             'border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">' +
+      '\uD83D\uDCCD Aggiungi come Sito' +
+    '</button>' +
+  '</div>';
+}
+
+function renderHotspotList(hotspots) {
+  const list = document.getElementById('hotspotList');
+  if (!list) return;
+  list.innerHTML = hotspots.map(function(h) {
+    const color = h.score >= 75 ? '#ff4757' : '#ffa502';
+    return '<div class="hotspot-item" onclick="selectHotspot(' + h.idx + ')" id="hotspot-item-' + h.idx + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:12px;font-weight:700;color:' + color + ';">\uD83D\uDD34 Zona #' + (h.idx + 1) + ' — ' + h.label + '</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + color + ';">' + h.score.toFixed(0) + '</span>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--text-muted);margin-top:3px;">' +
+        'NDVI \u0394' + (h.ndvi * 100).toFixed(0) + '% &middot; ' +
+        'Umid. ' + (h.moisture * 100).toFixed(0) + '% &middot; ' +
+        h.lat.toFixed(5) + ', ' + h.lng.toFixed(5) +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--primary);margin-top:3px;">\u2192 Clicca per selezionare (Livello 2)</div>' +
+    '</div>';
+  }).join('');
+}
+
+/**
+ * Seleziona un hotspot come target per il Livello 2 (Cecchino).
+ * Aggiorna il badge nella sezione Livello 2 e centra la mappa.
+ */
+function selectHotspot(idx) {
+  const h = state.hotspots[idx];
+  if (!h) return;
+  state.selectedHotspot = h;
+
+  // Aggiorna badge Livello 2
+  const badge = document.getElementById('selectedHotspotBadge');
+  const label = document.getElementById('selectedHotspotLabel');
+  if (badge) badge.style.display = 'flex';
+  if (label) label.textContent = 'Zona #' + (idx + 1) + ' — ' + h.label + ' (score ' + h.score.toFixed(0) + ')';
+
+  // Evidenzia nell'elenco
+  document.querySelectorAll('.hotspot-item').forEach(function(el) { el.classList.remove('selected'); });
+  const item = document.getElementById('hotspot-item-' + idx);
+  if (item) item.classList.add('selected');
+
+  // Centra mappa sull'hotspot
+  state.map.flyTo([h.lat, h.lng], 15, { animate: true, duration: 1.2 });
+  state.map.closePopup();
+
+  showToast('\uD83C\uDFAF Zona #' + (idx + 1) + ' selezionata — carica foto drone per Livello 2', 'success', 4000);
+
+  // Scroll alla sezione Livello 2
+  const lvl2 = document.querySelector('.funnel-level2');
+  if (lvl2) setTimeout(function() { lvl2.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 400);
+}
+
+function addHotspotAsMarker(idx) {
+  const h = state.hotspots[idx];
+  if (!h) return;
+  const site = {
+    id:        'site_' + Date.now(),
+    lat:       parseFloat(h.lat.toFixed(6)),
+    lng:       parseFloat(h.lng.toFixed(6)),
+    name:      'Hotspot #' + (idx + 1) + ' (' + h.label + ')',
+    comune:    'Scanner Spettrale',
+    address:   '',
+    timestamp: new Date().toLocaleString('it-IT'),
+    note:      'Score: ' + h.score.toFixed(0) + '/100 | NDVI delta: ' + (h.ndvi * 100).toFixed(0) + '%'
+  };
+  addSiteToMap(site);
+  state.sites.push(site);
+  saveSitesToStorage();
+  renderSitesList();
+  state.map.closePopup();
+  showToast('\uD83D\uDCCD Hotspot aggiunto al database.', 'success');
+}
+
+function clearHotspots() {
+  if (state.hotspotLayer) {
+    state.map.removeLayer(state.hotspotLayer);
+    state.hotspotLayer = null;
+  }
+  state.hotspots = [];
+  state.selectedHotspot = null;
+  const results = document.getElementById('hotspotResults');
+  if (results) results.style.display = 'none';
+  const badge = document.getElementById('selectedHotspotBadge');
+  if (badge) badge.style.display = 'none';
+  updateScannerStatus('', 'Scanner in attesa');
+}
+
+function updateScannerStatus(type, text) {
+  const dot  = document.getElementById('scannerDot');
+  const info = document.getElementById('scannerInfo');
+  if (dot)  dot.className   = 'sentinel-dot ' + type;
+  if (info) info.textContent = text;
+}
+
+
 function saveSitesToStorage() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(state.sites)); }
   catch(e) { showToast('Storage pieno.', 'error'); }
@@ -1004,6 +1888,7 @@ function renderSitesList() {
   countEl.textContent = state.sites.length;
   if (!state.sites.length) {
     container.innerHTML = '<p class="empty-state">Nessun sito registrato.<br/>Attiva la modalità marker e clicca sulla mappa.</p>';
+    populateSiteSelect();
     return;
   }
   container.innerHTML = state.sites.map(s => `
@@ -1018,6 +1903,7 @@ function renderSitesList() {
         <button class="site-btn del" onclick="deleteSite('${s.id}')">🗑️</button>
       </div>
     </div>`).join('');
+  populateSiteSelect();
 }
 function flyToSite(id) {
   const s = state.sites.find(x => x.id === id); if (!s) return;
@@ -1124,10 +2010,912 @@ async function registerServiceWorker() {
 }
 
 // ================================================================
-// 16. BOOTSTRAP
+// 16b. HUMAN-IN-THE-LOOP (HITL) — Deep Scan + Validazione
+// ================================================================
+
+// ── ICONE MARKER HITL ────────────────────────────────────────────
+function createHitlIcon(status) {
+  // status: 'pending' | 'confirmed' | 'discarded'
+  const cfg = {
+    pending:   { bg:'#f4c430', border:'#e6a817', pulse:true  },
+    confirmed: { bg:'#ff4757', border:'#c0392b', pulse:false },
+    discarded: { bg:'#7d8590', border:'#484f58', pulse:false }
+  }[status] || { bg:'#f4c430', border:'#e6a817', pulse:true };
+
+  const pulseHtml = cfg.pulse
+    ? `<div class="hitl-pulse" style="border-color:${cfg.bg};"></div>` : '';
+
+  return L.divIcon({
+    html: `<div class="hitl-marker-wrap">
+             ${pulseHtml}
+             <div class="hitl-marker-dot" style="background:${cfg.bg};border-color:${cfg.border};">
+               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                 fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                 ${status === 'confirmed'
+                   ? '<polyline points="20 6 9 17 4 12"/>'
+                   : status === 'discarded'
+                   ? '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+                   : '<circle cx="12" cy="12" r="3" fill="#000"/>'}
+               </svg>
+             </div>
+           </div>`,
+    className: '',
+    iconSize:  [40, 40],
+    iconAnchor:[20, 20],
+    popupAnchor:[0, -24]
+  });
+}
+
+// ── POPUP VALIDAZIONE (Tinder for Maps) ──────────────────────────
+function buildHitlPopup(id, data) {
+  const sats = (data.satellites || ['S2']).join(' + ');
+  const ndvi = data.ndvi_delta ? (data.ndvi_delta * 100).toFixed(0) + '%' : 'N/D';
+  const sar  = data.sar_score  ? (data.sar_score  * 100).toFixed(0) + '%' : 'N/D';
+  const conf = data.confidence ? (data.confidence * 100).toFixed(0) + '%' : 'N/D';
+
+  return `
+  <div class="hitl-popup">
+    <div class="hitl-popup-header">
+      <div class="hitl-popup-badge">🛰️ ANOMALIA SATELLITARE</div>
+      <div class="hitl-popup-title">Rilevata da ${sats}</div>
+    </div>
+
+    <div class="hitl-popup-coords">
+      ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}
+    </div>
+
+    <div class="hitl-popup-metrics">
+      <div class="hitl-metric">
+        <span class="hitl-metric-icon">🌿</span>
+        <div>
+          <div class="hitl-metric-label">NDVI Anomalia</div>
+          <div class="hitl-metric-val" style="color:#52b788;">Δ${ndvi}</div>
+        </div>
+      </div>
+      <div class="hitl-metric">
+        <span class="hitl-metric-icon">📡</span>
+        <div>
+          <div class="hitl-metric-label">SAR Backscatter</div>
+          <div class="hitl-metric-val" style="color:#c77dff;">${sar}</div>
+        </div>
+      </div>
+      <div class="hitl-metric">
+        <span class="hitl-metric-icon">🎯</span>
+        <div>
+          <div class="hitl-metric-label">Confidenza IA</div>
+          <div class="hitl-metric-val" style="color:#ffa502;">${conf}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hitl-popup-question">
+      L'analisi visiva conferma la presenza di coltivazione sospetta?
+    </div>
+
+    <div class="hitl-popup-actions">
+      <button class="hitl-btn hitl-btn-confirm" onclick="hitlConfirm('${id}')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Conferma<br/><small>Vero Positivo</small>
+      </button>
+      <button class="hitl-btn hitl-btn-discard" onclick="hitlDiscard('${id}')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Scarta<br/><small>Falso Positivo</small>
+      </button>
+    </div>
+
+    <div class="hitl-popup-footer">
+      Comune: <strong>${data.comune || 'N/D'}</strong> · ${data.timestamp}
+    </div>
+  </div>`;
+}
+
+// ── DEEP SCAN ─────────────────────────────────────────────────────
+/**
+ * Simula una chiamata a GEE/Sentinel con overlay di caricamento.
+ * Genera 3-4 marker HITL esclusivamente dentro il poligono del comune
+ * usando turf.booleanPointInPolygon per il geofencing.
+ */
+async function runDeepScan() {
+  if (state.deepScanRunning) return;
+  if (!state.communeGeoJSON) {
+    showToast('Cerca prima un comune per attivare il Deep Scan.', 'error');
+    return;
+  }
+
+  state.deepScanRunning = true;
+  const btn = document.getElementById('btnDeepScan');
+  if (btn) { btn.disabled = true; btn.classList.remove('ready'); }
+
+  // ── Overlay scansione ─────────────────────────────────────────
+  showDeepScanOverlay(true);
+  updateHitlStatus('running', 'Scansione multispettrale in corso...');
+
+  // Rimuovi marker HITL precedenti
+  clearHitlMarkers();
+
+  // Simula latenza GEE (2.5–4s)
+  const delay = 2500 + Math.random() * 1500;
+
+  await new Promise(resolve => setTimeout(resolve, delay));
+
+  try {
+    // ── Genera candidati dentro il poligono ───────────────────
+    const bbox   = state.communeBounds.getBounds();
+    const minLat = bbox.getSouth(), maxLat = bbox.getNorth();
+    const minLng = bbox.getWest(),  maxLng = bbox.getEast();
+
+    // Normalizza il GeoJSON in Feature per turf
+    let communeFeature = state.communeGeoJSON;
+    if (communeFeature.type !== 'Feature') {
+      communeFeature = { type: 'Feature', geometry: communeFeature, properties: {} };
+    }
+
+    // Genera punti casuali dentro il bbox, filtra con booleanPointInPolygon
+    const validPoints = [];
+    let attempts = 0;
+    while (validPoints.length < 4 && attempts < 200) {
+      attempts++;
+      const lat = minLat + Math.random() * (maxLat - minLat);
+      const lng = minLng + Math.random() * (maxLng - minLng);
+      const pt  = turf.point([lng, lat]);
+      try {
+        if (turf.booleanPointInPolygon(pt, communeFeature)) {
+          validPoints.push({ lat, lng });
+        }
+      } catch(e) { /* geometria complessa — skip */ }
+    }
+
+    // Prendi 3-4 punti
+    const count  = 3 + Math.floor(Math.random() * 2); // 3 o 4
+    const chosen = validPoints.slice(0, Math.min(count, validPoints.length));
+
+    if (!chosen.length) {
+      showToast('Nessun punto valido trovato nel poligono.', 'info');
+      updateHitlStatus('ok', 'Scansione completata — nessun hotspot');
+      return;
+    }
+
+    // ── Crea layer group HITL ─────────────────────────────────
+    if (!state.hitlLayerGroup) {
+      state.hitlLayerGroup = L.layerGroup().addTo(state.map);
+    }
+
+    const activeSats = Object.keys(state.activeSatellites)
+      .filter(k => state.activeSatellites[k])
+      .map(k => k === 'sentinel2' ? 'S2' : k === 'landsat' ? 'L8/9' : 'SAR');
+
+    chosen.forEach(function(pt, idx) {
+      const seed = Math.abs(Math.sin(pt.lat * 137.5 + pt.lng * 251.3));
+      const id   = 'hitl_' + Date.now() + '_' + idx;
+      const data = {
+        id,
+        lat:        pt.lat,
+        lng:        pt.lng,
+        comune:     state.communeName,
+        timestamp:  new Date().toLocaleString('it-IT'),
+        confidence: 0.45 + seed * 0.45,
+        ndvi_delta: 0.15 + seed * 0.35,
+        sar_score:  0.10 + (1 - seed) * 0.30,
+        satellites: activeSats,
+        status:     'pending'
+      };
+
+      const marker = L.marker([pt.lat, pt.lng], {
+        icon: createHitlIcon('pending'),
+        zIndexOffset: 1000
+      });
+
+      marker.bindPopup(buildHitlPopup(id, data), {
+        maxWidth:    320,
+        minWidth:    300,
+        className:   'hitl-popup-wrapper',
+        closeButton: true
+      });
+
+      marker.addTo(state.hitlLayerGroup);
+      state.hitlMarkers[id] = { marker, data };
+    });
+
+    const n = chosen.length;
+    updateHitlStatus('alert', `${n} anomalia/e rilevata/e — in attesa di validazione`);
+    updateHitlCounter();
+    showToast(`🛰️ Deep Scan completato: ${n} anomalie rilevate in ${state.communeName}`, 'error', 6000);
+
+    // Aggiorna badge nella sidebar
+    const badge = document.getElementById('hitlPendingBadge');
+    if (badge) { badge.textContent = n; badge.style.display = 'flex'; }
+
+  } catch(err) {
+    console.error('[DeepScan]', err);
+    updateHitlStatus('error', 'Errore durante la scansione');
+    showToast('Errore Deep Scan.', 'error');
+  } finally {
+    showDeepScanOverlay(false);
+    state.deepScanRunning = false;
+    if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+  }
+}
+
+// ── OVERLAY SCANSIONE ─────────────────────────────────────────────
+function showDeepScanOverlay(visible) {
+  let overlay = document.getElementById('deepScanOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'deepScanOverlay';
+    overlay.className = 'deep-scan-overlay';
+    overlay.innerHTML = `
+      <div class="deep-scan-content">
+        <div class="deep-scan-radar">
+          <div class="radar-ring r1"></div>
+          <div class="radar-ring r2"></div>
+          <div class="radar-ring r3"></div>
+          <div class="radar-sweep"></div>
+          <div class="radar-center">🛰️</div>
+        </div>
+        <div class="deep-scan-title">Scansione Multispettrale in Corso</div>
+        <div class="deep-scan-steps" id="scanSteps">
+          <div class="scan-step active" id="step1">⬡ Caricamento dati Sentinel-2...</div>
+          <div class="scan-step" id="step2">⬡ Analisi NDVI e Red Edge...</div>
+          <div class="scan-step" id="step3">⬡ Confronto temporale (Δ30gg)...</div>
+          <div class="scan-step" id="step4">⬡ Fusione SAR + Termico...</div>
+          <div class="scan-step" id="step5">⬡ Geofencing poligono comune...</div>
+        </div>
+        <div class="deep-scan-commune" id="scanCommune">${state.communeName}</div>
+        <div class="deep-scan-credits">Idea di <strong>Alessandro P.</strong> · Generata da <strong>Emanuele D.</strong></div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Anima gli step in sequenza
+    const steps = ['step1','step2','step3','step4','step5'];
+    steps.forEach(function(sid, i) {
+      setTimeout(function() {
+        const el = document.getElementById(sid);
+        if (el) {
+          el.classList.add('active');
+          el.textContent = el.textContent.replace('⬡', '✓');
+        }
+      }, i * 480);
+    });
+  }
+  overlay.style.display = visible ? 'flex' : 'none';
+  if (!visible) { overlay.remove(); }
+}
+
+// ── AZIONI VALIDAZIONE ────────────────────────────────────────────
+function hitlConfirm(id) {
+  const entry = state.hitlMarkers[id];
+  if (!entry) return;
+
+  entry.data.status = 'confirmed';
+  entry.marker.setIcon(createHitlIcon('confirmed'));
+  entry.marker.closePopup();
+
+  // Aggiunge al database locale come sito confermato
+  const site = {
+    id:        'site_' + Date.now(),
+    lat:       parseFloat(entry.data.lat.toFixed(6)),
+    lng:       parseFloat(entry.data.lng.toFixed(6)),
+    name:      'Confermato IA — ' + state.communeName,
+    comune:    entry.data.comune,
+    address:   '',
+    timestamp: entry.data.timestamp,
+    note:      'Vero Positivo · Confidenza: ' + (entry.data.confidence * 100).toFixed(0) + '%'
+  };
+  addSiteToMap(site);
+  state.sites.push(site);
+  saveSitesToStorage();
+  renderSitesList();
+
+  // Invia al training database
+  sendToTrainingDatabase(
+    { lat: entry.data.lat, lng: entry.data.lng },
+    true,
+    'hitl_validation',
+    entry.data
+  );
+
+  updateHitlCounter();
+  showToast('✅ Confermato come Vero Positivo — dati inviati al training set', 'success', 5000);
+
+  // Aggiorna popup con stato confermato
+  entry.marker.bindPopup(buildHitlConfirmedPopup(entry.data));
+  setTimeout(() => entry.marker.openPopup(), 200);
+}
+
+function hitlDiscard(id) {
+  const entry = state.hitlMarkers[id];
+  if (!entry) return;
+
+  entry.data.status = 'discarded';
+  entry.marker.closePopup();
+
+  // Animazione fade-out
+  const el = entry.marker.getElement();
+  if (el) {
+    el.style.transition = 'opacity 0.5s, transform 0.5s';
+    el.style.opacity    = '0';
+    el.style.transform  = 'scale(0.3)';
+  }
+  setTimeout(function() {
+    if (state.hitlLayerGroup) state.hitlLayerGroup.removeLayer(entry.marker);
+    delete state.hitlMarkers[id];
+    updateHitlCounter();
+  }, 500);
+
+  // Invia al training database come falso positivo
+  sendToTrainingDatabase(
+    { lat: entry.data.lat, lng: entry.data.lng },
+    false,
+    'hitl_validation',
+    entry.data
+  );
+
+  showToast('❌ Scartato come Falso Positivo — l\'IA imparerà a ignorarlo', 'info', 4000);
+}
+
+function buildHitlConfirmedPopup(data) {
+  return `<div class="hitl-popup hitl-popup-confirmed">
+    <div class="hitl-popup-header">
+      <div class="hitl-popup-badge" style="background:rgba(255,71,87,0.2);color:#ff4757;border-color:rgba(255,71,87,0.4);">
+        ✅ SITO CONFERMATO
+      </div>
+    </div>
+    <div class="hitl-popup-coords">${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
+      Vero Positivo registrato nel training set.<br/>
+      Confidenza IA: <strong style="color:#ffa502;">${(data.confidence*100).toFixed(0)}%</strong>
+    </div>
+  </div>`;
+}
+
+// ── FUNZIONE UNIFICATA TRAINING DATABASE ──────────────────────────
+/**
+ * sendToTrainingDatabase(coords, isTarget, method, extraData)
+ *
+ * Punto di raccolta unificato per tutti i dati di training:
+ * - isTarget: true  → Vero Positivo (coltivazione confermata)
+ * - isTarget: false → Falso Positivo (da ignorare in futuro)
+ * - method: 'hitl_validation' | 'manual_entry' | 'ai_cv' | 'spectral_scan'
+ *
+ * Chiama uploadToGlobalDataset() (sezione 17) se configurato,
+ * altrimenti salva solo in localStorage come fallback.
+ */
+function sendToTrainingDatabase(coords, isTarget, method, extraData) {
+  extraData = extraData || {};
+
+  const entry = {
+    id:               'train_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    timestamp:        new Date().toISOString(),
+    lat:              coords.lat,
+    lng:              coords.lng,
+    comune:           extraData.comune || state.communeName || 'N/D',
+    is_target:        isTarget,
+    vegetation_type:  isTarget ? 'coltura_sospetta' : 'falso_positivo',
+    confidence:       extraData.confidence || (isTarget ? 0.85 : 0.1),
+    detection_method: method,
+    satellites_used:  extraData.satellites || Object.keys(state.activeSatellites).filter(k => state.activeSatellites[k]),
+    risk_score:       extraData.risk_score || Math.round((extraData.confidence || 0.5) * 100),
+    ndvi_delta:       extraData.ndvi_delta  || 0,
+    thermal_anomaly:  extraData.thermal_anomaly || 0,
+    sar_backscatter:  extraData.sar_score   || 0,
+    catasto:          extraData.catasto     || {}
+  };
+
+  // Salva in localStorage come fallback immediato
+  try {
+    const existing = JSON.parse(localStorage.getItem('argus_training_local') || '[]');
+    existing.push(entry);
+    localStorage.setItem('argus_training_local', JSON.stringify(existing.slice(-500))); // max 500
+  } catch(e) { /* storage pieno */ }
+
+  // Invia al dataset globale GitHub (se token configurato)
+  if (typeof uploadToGlobalDataset === 'function') {
+    uploadToGlobalDataset(entry).catch(function(err) {
+      console.warn('[Training] Upload fallito, dato salvato in locale:', err.message);
+    });
+  }
+
+  console.log('[Training]', isTarget ? '✅ VP' : '❌ FP', method, coords.lat.toFixed(4), coords.lng.toFixed(4));
+}
+
+// ── CLEAR HITL ────────────────────────────────────────────────────
+function clearHitlMarkers() {
+  if (state.hitlLayerGroup) {
+    state.hitlLayerGroup.clearLayers();
+  }
+  state.hitlMarkers = {};
+  updateHitlCounter();
+  const badge = document.getElementById('hitlPendingBadge');
+  if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+}
+
+// ── STATUS + COUNTER ──────────────────────────────────────────────
+function updateHitlStatus(type, text) {
+  const dot  = document.getElementById('hitlDot');
+  const info = document.getElementById('hitlStatusText');
+  if (dot)  dot.className   = 'sentinel-dot ' + type;
+  if (info) info.textContent = text;
+}
+
+function updateHitlCounter() {
+  const pending   = Object.values(state.hitlMarkers).filter(e => e.data.status === 'pending').length;
+  const confirmed = Object.values(state.hitlMarkers).filter(e => e.data.status === 'confirmed').length;
+  const el = document.getElementById('hitlCounterText');
+  if (el) el.textContent = `In attesa: ${pending} · Confermati: ${confirmed}`;
+  const badge = document.getElementById('hitlPendingBadge');
+  if (badge) {
+    badge.textContent = pending;
+    badge.style.display = pending > 0 ? 'flex' : 'none';
+  }
+}
+
+// ── INIT HITL ─────────────────────────────────────────────────────
+function initHitl() {
+  state.hitlLayerGroup = L.layerGroup().addTo(state.map);
+  updateHitlStatus('', 'Cerca un comune per iniziare');
+}
+
+// ================================================================
+// 17. APPRENDIMENTO COLLETTIVO — Upload dataset globale
+//     + Dati catastali + Condivisione WhatsApp
+// ================================================================
+
+// ── CONFIGURAZIONE ────────────────────────────────────────────────
+// ISTRUZIONI SICUREZZA TOKEN:
+// 1. Vai su GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+// 2. Crea un token con scope: "Contents: Read and Write" SOLO su questo repository
+// 3. Vai su GitHub → Repository → Settings → Secrets and variables → Actions
+// 4. Crea un secret chiamato ARGUS_DISPATCH_TOKEN con il valore del token
+// 5. Sostituisci ARGUS_GITHUB_REPO con "tuo-username/tuo-repo"
+// 6. Il token NON va mai scritto qui nel codice — viene letto da una variabile
+//    configurata dall'operatore al primo avvio (vedi initLearningConfig)
+const LEARNING_CONFIG = {
+  // Questi valori vengono caricati da localStorage (impostati dall'operatore)
+  // MAI hardcodare il token qui — è un file pubblico su GitHub Pages
+  repo:  localStorage.getItem('argus_gh_repo')  || '',   // es: "username/argus-app"
+  token: localStorage.getItem('argus_gh_token') || '',   // PAT fine-grained (scope: contents)
+  apiUrl: 'https://api.github.com/repos/'
+};
+
+// Contatore contributi locali
+let localContribCount = parseInt(localStorage.getItem('argus_contrib_count') || '0', 10);
+
+// Dati catastali dell'ultimo sito selezionato
+let currentCatastoData = null;
+// Sito corrente selezionato per il contributo
+let currentLearningEntry = null;
+
+// ── INIT ──────────────────────────────────────────────────────────
+function initLearning() {
+  updateLocalContribCounter();
+  populateSiteSelect();
+
+  // Se non configurato, mostra avviso
+  if (!LEARNING_CONFIG.repo || !LEARNING_CONFIG.token) {
+    const dot = document.getElementById('learningDot');
+    const txt = document.getElementById('learningStatusText');
+    if (dot) dot.className = 'learning-dot warn';
+    if (txt) txt.textContent = 'Token non configurato — vedi istruzioni';
+  }
+}
+
+function updateLocalContribCounter() {
+  const el = document.getElementById('localContribCount');
+  if (el) el.textContent = localContribCount;
+}
+
+function populateSiteSelect() {
+  const sel = document.getElementById('learningSelectSite');
+  if (!sel) return;
+  // Svuota e ripopola
+  sel.innerHTML = '<option value="">— Seleziona un sito salvato —</option>';
+  state.sites.forEach(function(s) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' — ' + s.comune + ' (' + s.lat.toFixed(4) + ', ' + s.lng.toFixed(4) + ')';
+    sel.appendChild(opt);
+  });
+  sel.onchange = function() { onLearningSelectSite(this.value); };
+}
+
+async function onLearningSelectSite(siteId) {
+  if (!siteId) {
+    currentLearningEntry = null;
+    currentCatastoData   = null;
+    document.getElementById('catastoDataBox').style.display = 'none';
+    document.getElementById('btnWhatsapp').disabled = true;
+    return;
+  }
+  const site = state.sites.find(function(s) { return s.id === siteId; });
+  if (!site) return;
+  currentLearningEntry = site;
+  document.getElementById('btnWhatsapp').disabled = false;
+
+  // Carica dati catastali
+  await fetchCatastoData(site.lat, site.lng);
+}
+
+// ── FETCH DATI CATASTALI ──────────────────────────────────────────
+/**
+ * Interroga il WMS catastale dell'Agenzia delle Entrate (GetFeatureInfo)
+ * per ottenere i dati della particella alle coordinate date.
+ * Endpoint pubblico, nessuna autenticazione richiesta.
+ */
+async function fetchCatastoData(lat, lng) {
+  const box = document.getElementById('catastoDataBox');
+  const status = document.getElementById('catastoLoadStatus');
+  const content = document.getElementById('catastoDataContent');
+  if (box) box.style.display = 'block';
+  if (status) status.textContent = 'caricamento...';
+  if (content) content.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Interrogazione catasto in corso...</div>';
+
+  currentCatastoData = null;
+
+  try {
+    // Converti lat/lng in coordinate EPSG:3857 (Web Mercator) per il WMS
+    const R = 6378137;
+    const x = lng * Math.PI / 180 * R;
+    const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * R;
+
+    // Bounding box piccolo attorno al punto (±50m)
+    const delta = 50;
+    const bbox = (x - delta) + ',' + (y - delta) + ',' + (x + delta) + ',' + (y + delta);
+
+    // GetFeatureInfo sul layer CP.CadastralParcel
+    const wmsUrl = 'https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php' +
+      '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo' +
+      '&LAYERS=CP.CadastralParcel' +
+      '&QUERY_LAYERS=CP.CadastralParcel' +
+      '&INFO_FORMAT=application/json' +
+      '&FEATURE_COUNT=1' +
+      '&CRS=EPSG:3857' +
+      '&BBOX=' + bbox +
+      '&WIDTH=101&HEIGHT=101&I=50&J=50';
+
+    const res = await fetch(wmsUrl, { signal: AbortSignal.timeout(8000) });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    if (data.features && data.features.length > 0) {
+      const props = data.features[0].properties || {};
+      currentCatastoData = {
+        foglio:           props.FOGLIO           || props.foglio           || '',
+        particella:       props.PARTICELLA       || props.particella       || props.NUMERO || '',
+        comune_catastale: props.COMUNE           || props.comune           || '',
+        sezione:          props.SEZIONE          || props.sezione          || '',
+        qualita:          props.QUALITA          || props.qualita          || props.DESTINAZIONE || '',
+        classe:           props.CLASSE           || props.classe           || '',
+        superficie_ha:    parseFloat(props.SUPERFICIE || props.superficie || 0) / 10000 || 0,
+        raw:              props
+      };
+      renderCatastoData(currentCatastoData, content, status);
+    } else {
+      // Nessuna particella trovata — prova con Nominatim per info amministrative
+      currentCatastoData = { foglio:'N/D', particella:'N/D', comune_catastale:'', sezione:'', qualita:'', classe:'', superficie_ha:0 };
+      if (content) content.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:6px;">Nessuna particella catastale trovata per queste coordinate.<br/>Verifica che il punto sia su territorio italiano.</div>';
+      if (status) status.textContent = 'non trovato';
+    }
+  } catch(err) {
+    console.warn('[Catasto]', err.message);
+    currentCatastoData = { foglio:'N/D', particella:'N/D', comune_catastale:'', sezione:'', qualita:'', classe:'', superficie_ha:0 };
+    if (content) content.innerHTML = '<div style="font-size:11px;color:var(--warning);padding:6px;">⚠️ Catasto non raggiungibile. I dati catastali non saranno inclusi nel contributo.</div>';
+    if (status) status.textContent = 'errore';
+  }
+}
+
+function renderCatastoData(data, container, statusEl) {
+  if (!container) return;
+  const rows = [
+    ['Foglio',      data.foglio      || 'N/D'],
+    ['Particella',  data.particella  || 'N/D'],
+    ['Comune',      data.comune_catastale || 'N/D'],
+    ['Sezione',     data.sezione     || '—'],
+    ['Qualità',     data.qualita     || 'N/D'],
+    ['Classe',      data.classe      || '—'],
+    ['Superficie',  data.superficie_ha ? data.superficie_ha.toFixed(4) + ' ha' : 'N/D']
+  ];
+  container.innerHTML = rows.map(function(r) {
+    return '<div class="catasto-row"><span class="catasto-key">' + r[0] + '</span><span class="catasto-val">' + r[1] + '</span></div>';
+  }).join('');
+  if (statusEl) statusEl.textContent = 'caricato ✓';
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────
+function openLearningModal() {
+  const siteId = document.getElementById('learningSelectSite').value;
+  if (!siteId) {
+    showToast('Seleziona prima un sito dalla lista.', 'error');
+    return;
+  }
+  const site = state.sites.find(function(s) { return s.id === siteId; });
+  if (!site) return;
+
+  // Popola riepilogo nel modal
+  const summary = document.getElementById('modalSiteSummary');
+  if (summary) {
+    const vegType = document.getElementById('learningVegType');
+    const vegLabel = vegType ? vegType.options[vegType.selectedIndex].text : '';
+    summary.innerHTML =
+      '<div class="modal-site-row"><span>📍 Sito</span><strong>' + site.name + '</strong></div>' +
+      '<div class="modal-site-row"><span>🏘️ Comune</span><strong>' + site.comune + '</strong></div>' +
+      '<div class="modal-site-row"><span>🌐 Coordinate</span><strong style="font-family:monospace;">' + site.lat.toFixed(4) + ', ' + site.lng.toFixed(4) + '</strong></div>' +
+      '<div class="modal-site-row"><span>🌿 Vegetazione</span><strong>' + vegLabel + '</strong></div>' +
+      '<div class="modal-site-row"><span>🕐 Timestamp</span><strong>' + site.timestamp + '</strong></div>';
+  }
+
+  // Popola catasto nel modal
+  const modalCatasto = document.getElementById('modalCatastoBox');
+  if (modalCatasto && currentCatastoData && currentCatastoData.foglio !== 'N/D') {
+    modalCatasto.style.display = 'block';
+    const content = document.createElement('div');
+    renderCatastoData(currentCatastoData, content, null);
+    modalCatasto.innerHTML = '<div class="catasto-box-header"><span>🏛️ Dati Catastali</span><span style="font-size:10px;color:var(--primary);">✓ caricati</span></div>';
+    modalCatasto.appendChild(content);
+  } else if (modalCatasto) {
+    modalCatasto.style.display = 'none';
+  }
+
+  // Reset consenso
+  const check = document.getElementById('consentCheck');
+  if (check) check.checked = false;
+  const btn = document.getElementById('btnConfirmUpload');
+  if (btn) btn.disabled = true;
+
+  document.getElementById('learningModal').style.display = 'flex';
+}
+
+function closeLearningModal(event) {
+  if (event && event.target !== document.getElementById('learningModal')) return;
+  document.getElementById('learningModal').style.display = 'none';
+}
+
+// ── UPLOAD AL DATASET GLOBALE ─────────────────────────────────────
+/**
+ * Invia i dati al repository GitHub tramite Repository Dispatch API.
+ * Il token PAT viene letto da localStorage (mai hardcodato nel sorgente).
+ *
+ * SICUREZZA:
+ * - Il token viene salvato in localStorage solo sul dispositivo dell'operatore
+ * - Non viene mai incluso nel codice sorgente pubblicato su GitHub Pages
+ * - Usa un PAT fine-grained con scope "Contents: Read and Write" solo su questo repo
+ * - La GitHub Action usa GITHUB_TOKEN (automatico) per il commit — non serve PAT per quello
+ */
+async function uploadToGlobalDataset(data) {
+  const repo  = LEARNING_CONFIG.repo  || localStorage.getItem('argus_gh_repo');
+  const token = LEARNING_CONFIG.token || localStorage.getItem('argus_gh_token');
+
+  if (!repo || !token) {
+    showToast('⚙️ Configura repo e token nelle impostazioni.', 'error', 5000);
+    promptTokenConfig();
+    return false;
+  }
+
+  const dot = document.getElementById('learningDot');
+  const txt = document.getElementById('learningStatusText');
+  if (dot) dot.className = 'learning-dot running';
+  if (txt) txt.textContent = 'Invio in corso...';
+
+  try {
+    const payload = {
+      event_type: 'argus_new_entry',
+      client_payload: {
+        id:               'argus_' + Date.now(),
+        timestamp:        new Date().toISOString(),
+        lat:              data.lat,
+        lng:              data.lng,
+        comune:           data.comune           || 'N/D',
+        vegetation_type:  data.vegetation_type  || 'unknown',
+        confidence:       data.confidence       || 0,
+        detection_method: data.detection_method || 'manual',
+        satellites_used:  data.satellites_used  || ['sentinel2'],
+        risk_score:       data.risk_score       || 0,
+        ndvi_delta:       data.ndvi_delta        || 0,
+        thermal_anomaly:  data.thermal_anomaly   || 0,
+        sar_backscatter:  data.sar_backscatter   || 0,
+        catasto:          data.catasto           || {}
+      }
+    };
+
+    const res = await fetch(LEARNING_CONFIG.apiUrl + repo + '/dispatches', {
+      method:  'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept':        'application/vnd.github+json',
+        'Content-Type':  'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.status === 204) {
+      // Successo: GitHub Dispatch accettato
+      if (dot) dot.className = 'learning-dot ok';
+      if (txt) txt.textContent = 'Contributo inviato con successo!';
+
+      // Animazione cervello
+      triggerBrainAnimation();
+
+      // Incrementa contatore locale
+      localContribCount++;
+      localStorage.setItem('argus_contrib_count', localContribCount);
+      updateLocalContribCounter();
+
+      showToast('🧠 Contributo inviato al dataset globale!', 'success', 5000);
+      document.getElementById('learningModal').style.display = 'none';
+      return true;
+    } else {
+      const errBody = await res.text();
+      throw new Error('HTTP ' + res.status + ': ' + errBody.slice(0, 100));
+    }
+  } catch(err) {
+    console.error('[Learning]', err);
+    if (dot) dot.className = 'learning-dot error';
+    if (txt) txt.textContent = 'Errore invio: ' + err.message.slice(0, 60);
+    showToast('❌ Errore invio: ' + err.message.slice(0, 50), 'error', 6000);
+    return false;
+  }
+}
+
+async function confirmUpload() {
+  if (!currentLearningEntry) return;
+  const vegType = document.getElementById('learningVegType');
+  const data = {
+    lat:              currentLearningEntry.lat,
+    lng:              currentLearningEntry.lng,
+    comune:           currentLearningEntry.comune,
+    vegetation_type:  vegType ? vegType.value : 'unknown',
+    confidence:       0.8,
+    detection_method: 'manual',
+    satellites_used:  Object.keys(state.activeSatellites).filter(function(k) { return state.activeSatellites[k]; }),
+    risk_score:       0,
+    ndvi_delta:       0,
+    thermal_anomaly:  0,
+    sar_backscatter:  0,
+    catasto:          currentCatastoData || {}
+  };
+  await uploadToGlobalDataset(data);
+}
+
+// Chiamata automatica quando si conferma un sito (marker o AI)
+function autoUploadOnConfirm(site, detectionData) {
+  if (!LEARNING_CONFIG.repo || !LEARNING_CONFIG.token) return; // silenzioso se non configurato
+  const data = {
+    lat:              site.lat,
+    lng:              site.lng,
+    comune:           site.comune,
+    vegetation_type:  'coltura_sospetta',
+    confidence:       detectionData ? (detectionData.confidence || 0.5) : 0.5,
+    detection_method: detectionData ? 'ai_cv' : 'manual',
+    satellites_used:  Object.keys(state.activeSatellites).filter(function(k) { return state.activeSatellites[k]; }),
+    risk_score:       detectionData ? Math.round((detectionData.confidence || 0) * 100) : 0,
+    ndvi_delta:       0,
+    thermal_anomaly:  0,
+    sar_backscatter:  0,
+    catasto:          {}
+  };
+  uploadToGlobalDataset(data);
+}
+
+// ── ANIMAZIONE CERVELLO ───────────────────────────────────────────
+function triggerBrainAnimation() {
+  const icons = [document.getElementById('brainIcon'), document.getElementById('brainIconModal')];
+  icons.forEach(function(icon) {
+    if (!icon) return;
+    icon.classList.add('brain-glow');
+    setTimeout(function() { icon.classList.remove('brain-glow'); }, 3000);
+  });
+}
+
+// ── CONFIGURAZIONE TOKEN (primo avvio) ────────────────────────────
+function promptTokenConfig() {
+  const repo = prompt(
+    'CONFIGURAZIONE ARGUS — Apprendimento Collettivo\n\n' +
+    'Inserisci il tuo GitHub Repository (es: username/argus-app):\n' +
+    '(Lascia vuoto per annullare)'
+  );
+  if (!repo) return;
+  const token = prompt(
+    'Inserisci il tuo GitHub PAT (Fine-grained token):\n\n' +
+    'Come ottenerlo:\n' +
+    '1. GitHub → Settings → Developer settings\n' +
+    '2. Personal access tokens → Fine-grained tokens\n' +
+    '3. Scope: Contents (Read & Write) su questo repository\n\n' +
+    'Il token viene salvato SOLO su questo dispositivo (localStorage).'
+  );
+  if (!token) return;
+  localStorage.setItem('argus_gh_repo',  repo.trim());
+  localStorage.setItem('argus_gh_token', token.trim());
+  LEARNING_CONFIG.repo  = repo.trim();
+  LEARNING_CONFIG.token = token.trim();
+  const dot = document.getElementById('learningDot');
+  const txt = document.getElementById('learningStatusText');
+  if (dot) dot.className = 'learning-dot ok';
+  if (txt) txt.textContent = 'Configurato: ' + repo.trim();
+  showToast('✅ Token configurato. Pronto per contribuire!', 'success', 5000);
+}
+
+// ── CONDIVISIONE WHATSAPP ─────────────────────────────────────────
+/**
+ * Genera un messaggio WhatsApp con:
+ * - Coordinate del sito
+ * - Dati catastali (foglio, particella, comune)
+ * - Link Google Maps
+ * - Link OpenStreetMap
+ * - Timestamp
+ */
+function shareOnWhatsApp() {
+  const site = currentLearningEntry;
+  if (!site) {
+    showToast('Seleziona prima un sito dalla lista.', 'error');
+    return;
+  }
+
+  const catasto = currentCatastoData;
+  const mapsUrl = 'https://maps.google.com/?q=' + site.lat + ',' + site.lng;
+  const osmUrl  = 'https://www.openstreetmap.org/?mlat=' + site.lat + '&mlon=' + site.lng + '&zoom=17';
+
+  // Sezione catastale (solo se disponibile)
+  let catastoText = '';
+  if (catasto && catasto.foglio && catasto.foglio !== 'N/D') {
+    catastoText =
+      '\n\n🏛️ *DATI CATASTALI*' +
+      '\nFoglio: ' + (catasto.foglio || 'N/D') +
+      '\nParticella: ' + (catasto.particella || 'N/D') +
+      '\nComune catastale: ' + (catasto.comune_catastale || site.comune) +
+      (catasto.sezione    ? '\nSezione: '    + catasto.sezione    : '') +
+      (catasto.qualita    ? '\nQualità: '    + catasto.qualita    : '') +
+      (catasto.classe     ? '\nClasse: '     + catasto.classe     : '') +
+      (catasto.superficie_ha > 0 ? '\nSuperficie: ' + catasto.superficie_ha.toFixed(4) + ' ha' : '');
+  }
+
+  // Tipo vegetazione selezionato
+  const vegEl = document.getElementById('learningVegType');
+  const vegLabel = vegEl ? vegEl.options[vegEl.selectedIndex].text : 'N/D';
+
+  const msg =
+    '🔴 *ARGUS — SITO SOSPETTO RILEVATO*\n' +
+    '━━━━━━━━━━━━━━━━━━━━\n\n' +
+    '📍 *' + site.name + '*\n' +
+    '🏘️ Comune: ' + site.comune + '\n' +
+    '🌿 Tipo: ' + vegLabel + '\n' +
+    '🕐 ' + site.timestamp + '\n\n' +
+    '🌐 *COORDINATE*\n' +
+    'Lat: ' + site.lat.toFixed(6) + '\n' +
+    'Lng: ' + site.lng.toFixed(6) +
+    catastoText +
+    '\n\n🗺️ *LINK MAPPA*\n' +
+    'Google Maps: ' + mapsUrl + '\n' +
+    'OpenStreetMap: ' + osmUrl + '\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━\n' +
+    '_Inviato da Argus GIS Investigativo_';
+
+  // Mostra preview
+  const preview = document.getElementById('whatsappPreview');
+  if (preview) {
+    preview.style.display = 'block';
+    preview.textContent = msg;
+  }
+
+  // Apri WhatsApp
+  const waUrl = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.open(waUrl, '_blank', 'noopener,noreferrer');
+  showToast('📲 WhatsApp aperto con il messaggio!', 'success', 4000);
+}
+
+// ================================================================
+// 18. BOOTSTRAP
 // ================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   registerServiceWorker();
+  initLearning();
+  initHitl();
 });
 

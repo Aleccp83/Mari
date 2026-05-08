@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "Argus — Dataset collettivo di siti sospetti confermati dagli operatori",
+    "version": "1.0.0",
+    "created": "2026-05-08",
+    "last_updated": "2026-05-08",
+    "total_entries": 0,
+    "contributors": 0,
+    "schema": {
+      "id": "string — UUID univoco del contributo",
+      "timestamp": "ISO 8601",
+      "lat": "float — latitudine WGS84",
+      "lng": "float — longitudine WGS84",
+      "comune": "string — comune di appartenenza",
+      "vegetation_type": "string — tipo vegetazione rilevata",
+      "confidence": "float 0-1 — confidenza rilevamento IA",
+      "detection_method": "string — metodo: manual|ai_cv|spectral_scan|fusion",
+      "satellites_used": "array — satelliti attivi al momento del rilevamento",
+      "risk_score": "integer 0-100 — score fusione multi-satellite",
+      "ndvi_delta": "float — anomalia NDVI rilevata",
+      "thermal_anomaly": "float — anomalia termica Landsat (se disponibile)",
+      "sar_backscatter": "float — backscatter SAR (se disponibile)",
+      "catasto": {
+        "foglio": "string",
+        "particella": "string",
+        "comune_catastale": "string",
+        "sezione": "string",
+        "qualita": "string — destinazione d'uso catastale",
+        "classe": "string",
+        "superficie_ha": "float"
+      },
+      "hash": "string — SHA-256 delle coordinate (privacy: no coordinate esatte nel dataset pubblico)"
+    }
+  },
+  "entries": []
+}
