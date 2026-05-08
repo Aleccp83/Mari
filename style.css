@@ -2847,3 +2847,148 @@ input[type="range"]::-moz-range-thumb {
 .deep-scan-credits strong {
   color: #7d8590;
 }
+
+/* ================================================================
+   ARGUS v8.0 — Pannello Impostazioni
+   ================================================================ */
+
+/* ── SETTINGS SECTION ───────────────────────────────────────────── */
+.settings-section {
+  border-color: rgba(125, 133, 144, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── SETTINGS GROUP ─────────────────────────────────────────────── */
+.settings-group {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+}
+
+.settings-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+/* ── SETTINGS ROW ───────────────────────────────────────────────── */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settings-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.settings-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  transition: var(--transition);
+  font-family: 'Courier New', monospace;
+  min-width: 0;
+}
+
+.settings-input:focus {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.settings-input::placeholder {
+  color: var(--text-dim);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* ── EYE BUTTON ─────────────────────────────────────────────────── */
+.settings-eye-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.settings-eye-btn:hover {
+  border-color: var(--border-accent);
+  color: var(--primary);
+}
+
+/* ── SETTINGS STATUS ROW ────────────────────────────────────────── */
+.settings-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+/* ── SETTINGS HINT ──────────────────────────────────────────────── */
+.settings-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── SAT STATUS GRID ────────────────────────────────────────────── */
+.sat-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.sat-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.sat-status-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sat-status-src {
+  font-size: 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}

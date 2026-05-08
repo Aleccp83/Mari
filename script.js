@@ -200,6 +200,8 @@ function initMap() {
   loadSitesFromStorage();
   updateTimelineLabel();
   renderIndexButtons();
+  // Inizializza layer group HITL subito dopo la mappa
+  state.hitlLayerGroup = L.layerGroup().addTo(state.map);
   showToast('Argus v1.0 beta pronto.', 'success');
 }
 
@@ -739,9 +741,30 @@ function updateFusionWeightBars() {
 }
 
 async function searchComune() {
-async function searchComune() {
   const query = document.getElementById('searchInput').value.trim();
   if (!query) { showToast('Inserisci il nome di un comune.', 'error'); return; }
+
+  // ── Chiudi sidebar e pulisci mappa precedente ───────────────
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && sidebar.classList.contains('open')) toggleSidebar();
+
+  // Rimuovi tutti i layer della ricerca precedente
+  if (state.riskZonesLayer)  { state.map.removeLayer(state.riskZonesLayer); state.riskZonesLayer = null; }
+  if (state.hotspotLayer)    { state.map.removeLayer(state.hotspotLayer);   state.hotspotLayer = null; }
+  clearHitlMarkers();
+  clearSentinelLayers();
+  // Rimuovi layer rischio manuale (acqua, strade, sentieri)
+  ['water','roads','paths','nearbyPaths'].forEach(function(k) {
+    if (state.riskLayers[k]) { state.map.removeLayer(state.riskLayers[k]); delete state.riskLayers[k]; }
+  });
+  // Reset stato hotspot/scanner
+  state.hotspots = [];
+  state.selectedHotspot = null;
+  const hotspotResults = document.getElementById('hotspotResults');
+  if (hotspotResults) hotspotResults.style.display = 'none';
+  updateAnalysisStatus('', 'In attesa di ricerca comune o marker');
+  updateScannerStatus('', 'Scanner in attesa');
+
   showSpinner(true);
   try {
     const url = `${NOMINATIM_URL}/search?q=${encodeURIComponent(query)}&format=json&limit=1&polygon_geojson=1&addressdetails=1&countrycodes=it`;
@@ -788,6 +811,10 @@ async function searchComune() {
       : 5;
     setTimeout(() => loadLatestSentinel(), 600);
     setTimeout(() => runAutoRiskAnalysis(centerLat, centerLng, radiusKm), 1200);
+    // Auto Deep Scan se abilitato nelle impostazioni
+    if (getSynergySettings().autoScan) {
+      setTimeout(() => runDeepScan(), 2000);
+    }
   } catch(err) {
     console.error('[Nominatim]', err);
     showToast('Errore di rete.', 'error');
@@ -2320,6 +2347,11 @@ function hitlConfirm(id) {
     entry.data
   );
 
+  // Auto-upload al dataset globale se abilitato nelle impostazioni
+  if (getSynergySettings().autoUpload) {
+    autoUploadOnConfirm(site, entry.data);
+  }
+
   updateHitlCounter();
   showToast('✅ Confermato come Vero Positivo — dati inviati al training set', 'success', 5000);
 
@@ -2457,7 +2489,7 @@ function updateHitlCounter() {
 
 // ── INIT HITL ─────────────────────────────────────────────────────
 function initHitl() {
-  state.hitlLayerGroup = L.layerGroup().addTo(state.map);
+  // hitlLayerGroup è già creato in initMap — qui aggiorniamo solo lo status UI
   updateHitlStatus('', 'Cerca un comune per iniziare');
 }
 
@@ -2910,6 +2942,212 @@ function shareOnWhatsApp() {
 }
 
 // ================================================================
+// 18b. IMPOSTAZIONI — Configurazione sistema
+// ================================================================
+
+function initSettings() {
+  // Carica valori salvati nei campi
+  const repo  = localStorage.getItem('argus_gh_repo')  || '';
+  const token = localStorage.getItem('argus_gh_token') || '';
+  const repoEl  = document.getElementById('settingsRepo');
+  const tokenEl = document.getElementById('settingsToken');
+  if (repoEl)  repoEl.value  = repo;
+  if (tokenEl) tokenEl.value = token;
+
+  // Carica impostazioni sinergia
+  const autoScan   = localStorage.getItem('argus_auto_scan')   === 'true';
+  const autoUpload = localStorage.getItem('argus_auto_upload') === 'true';
+  const el1 = document.getElementById('settingsAutoScan');
+  const el2 = document.getElementById('settingsAutoUpload');
+  if (el1) el1.checked = autoScan;
+  if (el2) el2.checked = autoUpload;
+
+  // Aggiorna status GitHub
+  updateSettingsGhStatus(repo && token);
+}
+
+function saveGitHubSettings() {
+  const repo  = (document.getElementById('settingsRepo')?.value  || '').trim();
+  const token = (document.getElementById('settingsToken')?.value || '').trim();
+  if (!repo || !token) {
+    showToast('Inserisci sia il repository che il token.', 'error');
+    return;
+  }
+  localStorage.setItem('argus_gh_repo',  repo);
+  localStorage.setItem('argus_gh_token', token);
+  LEARNING_CONFIG.repo  = repo;
+  LEARNING_CONFIG.token = token;
+  updateSettingsGhStatus(true);
+  showToast('✅ Impostazioni GitHub salvate.', 'success');
+}
+
+function clearGitHubSettings() {
+  if (!confirm('Cancellare le credenziali GitHub salvate?')) return;
+  localStorage.removeItem('argus_gh_repo');
+  localStorage.removeItem('argus_gh_token');
+  LEARNING_CONFIG.repo  = '';
+  LEARNING_CONFIG.token = '';
+  const repoEl  = document.getElementById('settingsRepo');
+  const tokenEl = document.getElementById('settingsToken');
+  if (repoEl)  repoEl.value  = '';
+  if (tokenEl) tokenEl.value = '';
+  updateSettingsGhStatus(false);
+  showToast('🗑️ Credenziali GitHub cancellate.', 'info');
+}
+
+async function testGitHubConnection() {
+  const repo  = (document.getElementById('settingsRepo')?.value  || '').trim();
+  const token = (document.getElementById('settingsToken')?.value || '').trim();
+  if (!repo || !token) {
+    showToast('Inserisci repo e token prima di testare.', 'error');
+    return;
+  }
+  updateSettingsGhStatus(null, 'Test in corso...');
+  try {
+    const res = await fetch('https://api.github.com/repos/' + repo, {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      updateSettingsGhStatus(true, 'Connesso: ' + data.full_name);
+      showToast('✅ Connessione GitHub OK: ' + data.full_name, 'success', 5000);
+    } else {
+      updateSettingsGhStatus(false, 'Errore HTTP ' + res.status);
+      showToast('❌ Token non valido o repo non trovato (HTTP ' + res.status + ')', 'error', 5000);
+    }
+  } catch(err) {
+    updateSettingsGhStatus(false, 'Errore di rete');
+    showToast('❌ Errore di rete: ' + err.message, 'error');
+  }
+}
+
+function updateSettingsGhStatus(ok, text) {
+  const dot = document.getElementById('settingsGhDot');
+  const lbl = document.getElementById('settingsGhStatus');
+  if (ok === null) {
+    if (dot) dot.className = 'sentinel-dot loading';
+    if (lbl) lbl.textContent = text || 'Test in corso...';
+  } else if (ok) {
+    if (dot) dot.className = 'sentinel-dot ok';
+    if (lbl) lbl.textContent = text || 'Configurato ✓';
+    // Aggiorna anche il dot nella sezione apprendimento
+    const ld = document.getElementById('learningDot');
+    const lt = document.getElementById('learningStatusText');
+    if (ld) ld.className = 'learning-dot ok';
+    if (lt) lt.textContent = 'Pronto per contribuire';
+    // Aggiorna status grid
+    const ghDot = document.getElementById('statusDotGH');
+    if (ghDot) ghDot.className = 'sentinel-dot ok';
+  } else {
+    if (dot) dot.className = 'sentinel-dot error';
+    if (lbl) lbl.textContent = text || 'Non configurato';
+    const ghDot = document.getElementById('statusDotGH');
+    if (ghDot) ghDot.className = 'sentinel-dot error';
+  }
+}
+
+function toggleTokenVisibility() {
+  const input = document.getElementById('settingsToken');
+  const icon  = document.getElementById('eyeIcon');
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    input.type = 'password';
+    if (icon) icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+function saveSynergySettings() {
+  const autoScan   = document.getElementById('settingsAutoScan')?.checked   || false;
+  const autoUpload = document.getElementById('settingsAutoUpload')?.checked || false;
+  localStorage.setItem('argus_auto_scan',   autoScan);
+  localStorage.setItem('argus_auto_upload', autoUpload);
+}
+
+// Legge le impostazioni sinergia (usato da searchComune e hitlConfirm)
+function getSynergySettings() {
+  return {
+    autoScan:   localStorage.getItem('argus_auto_scan')   === 'true',
+    autoUpload: localStorage.getItem('argus_auto_upload') === 'true',
+    fallbackDLR:   document.getElementById('settingsFallbackDLR')?.checked   !== false,
+    fallbackMODIS: document.getElementById('settingsFallbackMODIS')?.checked !== false
+  };
+}
+
+async function checkAllConnections() {
+  showToast('🔄 Verifica connessioni in corso...', 'info', 3000);
+
+  // Sentinel Hub
+  const s2Dot = document.getElementById('statusDotS2');
+  if (s2Dot) s2Dot.className = 'sentinel-dot loading';
+  try {
+    const r = await fetch(SH_WMS + '?SERVICE=WMS&REQUEST=GetCapabilities', { signal: AbortSignal.timeout(5000) });
+    if (s2Dot) s2Dot.className = r.ok ? 'sentinel-dot ok' : 'sentinel-dot warn';
+  } catch(e) {
+    if (s2Dot) s2Dot.className = 'sentinel-dot warn';
+  }
+
+  // NASA GIBS (Landsat proxy)
+  const lsDot = document.getElementById('statusDotLandsat');
+  if (lsDot) lsDot.className = 'sentinel-dot loading';
+  try {
+    const r = await fetch(GIBS_BASE + '/MODIS_Terra_CorrectedReflectance_TrueColor/default/2024-01-01/GoogleMapsCompatible/3/4/4.jpg', { signal: AbortSignal.timeout(5000) });
+    if (lsDot) lsDot.className = r.ok ? 'sentinel-dot ok' : 'sentinel-dot warn';
+  } catch(e) {
+    if (lsDot) lsDot.className = 'sentinel-dot warn';
+  }
+
+  // SAR proxy (stesso endpoint GIBS)
+  const sarDot = document.getElementById('statusDotSAR');
+  if (sarDot) sarDot.className = 'sentinel-dot ok'; // stesso server GIBS
+
+  // GitHub API
+  const repo  = localStorage.getItem('argus_gh_repo');
+  const token = localStorage.getItem('argus_gh_token');
+  const ghDot = document.getElementById('statusDotGH');
+  if (ghDot) ghDot.className = 'sentinel-dot loading';
+  if (repo && token) {
+    try {
+      const r = await fetch('https://api.github.com/repos/' + repo, {
+        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (ghDot) ghDot.className = r.ok ? 'sentinel-dot ok' : 'sentinel-dot error';
+    } catch(e) {
+      if (ghDot) ghDot.className = 'sentinel-dot error';
+    }
+  } else {
+    if (ghDot) ghDot.className = 'sentinel-dot warn';
+  }
+
+  showToast('✅ Verifica connessioni completata.', 'success');
+}
+
+function resetAllSettings() {
+  if (!confirm('Cancellare TUTTE le impostazioni locali? (token, configurazioni, contatori)\nI siti salvati NON verranno cancellati.')) return;
+  const keysToKeep = [LS_KEY]; // mantieni i siti
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach(function(k) {
+    if (!keysToKeep.includes(k)) localStorage.removeItem(k);
+  });
+  // Reset UI
+  const repoEl  = document.getElementById('settingsRepo');
+  const tokenEl = document.getElementById('settingsToken');
+  if (repoEl)  repoEl.value  = '';
+  if (tokenEl) tokenEl.value = '';
+  LEARNING_CONFIG.repo  = '';
+  LEARNING_CONFIG.token = '';
+  updateSettingsGhStatus(false);
+  showToast('🗑️ Impostazioni resettate. I siti sono stati mantenuti.', 'info', 5000);
+}
+
+// ================================================================
 // 18. BOOTSTRAP
 // ================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -2917,5 +3155,6 @@ document.addEventListener('DOMContentLoaded', () => {
   registerServiceWorker();
   initLearning();
   initHitl();
+  initSettings();
 });
 

@@ -645,6 +645,123 @@
         <div id="whatsappPreview" class="whatsapp-preview" style="display:none;"></div>
       </section>
 
+      <!-- ══════════════════════════════════════════════════════
+           IMPOSTAZIONI — Configurazione sistema
+           ══════════════════════════════════════════════════════ -->
+      <section class="panel-section settings-section" id="settingsSection">
+        <h3 class="section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Impostazioni
+        </h3>
+
+        <!-- ── GitHub Dataset ── -->
+        <div class="settings-group">
+          <div class="settings-group-title">🧠 Dataset Globale (GitHub)</div>
+          <div class="settings-row">
+            <label class="settings-label">Repository</label>
+            <input type="text" id="settingsRepo" class="settings-input"
+              placeholder="username/nome-repo"
+              value="" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Token PAT</label>
+            <div style="display:flex;gap:6px;flex:1;">
+              <input type="password" id="settingsToken" class="settings-input"
+                placeholder="github_pat_..." autocomplete="off" />
+              <button class="settings-eye-btn" onclick="toggleTokenVisibility()" title="Mostra/nascondi token">
+                <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-status-row">
+            <span class="sentinel-dot" id="settingsGhDot"></span>
+            <span id="settingsGhStatus" style="font-size:10px;color:var(--text-muted);">Non configurato</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="btn-primary" onclick="saveGitHubSettings()" style="flex:1;padding:9px;">
+              💾 Salva
+            </button>
+            <button class="btn-secondary" onclick="testGitHubConnection()" style="flex:1;padding:9px;">
+              🔗 Test
+            </button>
+            <button class="btn-danger" onclick="clearGitHubSettings()" style="flex:0 0 auto;padding:9px 12px;width:auto;">
+              🗑️
+            </button>
+          </div>
+          <div class="settings-hint">
+            Il token viene salvato solo su questo dispositivo (localStorage). Non viene mai inviato a terzi.
+            <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener" style="color:var(--primary);">Crea token →</a>
+          </div>
+        </div>
+
+        <!-- ── Sinergia Satelliti ── -->
+        <div class="settings-group">
+          <div class="settings-group-title">🛰️ Sinergia Multi-Satellite</div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.6;">
+            Configura come i satelliti collaborano. Se un satellite non è disponibile, il sistema usa automaticamente il fallback.
+          </p>
+
+          <label class="toggle-item" style="margin-bottom:6px;">
+            <input type="checkbox" id="settingsFallbackDLR" checked onchange="saveSynergySettings()" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Fallback DLR/EOC se Sentinel Hub offline<small>Dati mensili aggregati sempre disponibili</small></span>
+          </label>
+          <label class="toggle-item" style="margin-bottom:6px;">
+            <input type="checkbox" id="settingsFallbackMODIS" checked onchange="saveSynergySettings()" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Fallback MODIS se Landsat non disponibile<small>NASA GIBS aggiornato ogni 24h</small></span>
+          </label>
+          <label class="toggle-item" style="margin-bottom:6px;">
+            <input type="checkbox" id="settingsAutoScan" onchange="saveSynergySettings()" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Avvia Deep Scan automaticamente dopo ricerca comune<small>Genera marker HITL senza premere il pulsante</small></span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="settingsAutoUpload" onchange="saveSynergySettings()" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-label">Upload automatico al confermare un sito<small>Invia al dataset globale senza conferma manuale</small></span>
+          </label>
+        </div>
+
+        <!-- ── Stato Satelliti ── -->
+        <div class="settings-group">
+          <div class="settings-group-title">📡 Stato Connessioni</div>
+          <div class="sat-status-grid">
+            <div class="sat-status-item">
+              <span class="sentinel-dot" id="statusDotS2"></span>
+              <span class="sat-status-name">Sentinel-2</span>
+              <span class="sat-status-src">Sentinel Hub</span>
+            </div>
+            <div class="sat-status-item">
+              <span class="sentinel-dot" id="statusDotLandsat"></span>
+              <span class="sat-status-name">Landsat 8/9</span>
+              <span class="sat-status-src">NASA GIBS</span>
+            </div>
+            <div class="sat-status-item">
+              <span class="sentinel-dot" id="statusDotSAR"></span>
+              <span class="sat-status-name">Sentinel-1 SAR</span>
+              <span class="sat-status-src">GIBS proxy</span>
+            </div>
+            <div class="sat-status-item">
+              <span class="sentinel-dot" id="statusDotGH"></span>
+              <span class="sat-status-name">GitHub API</span>
+              <span class="sat-status-src">Dataset</span>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="checkAllConnections()" style="margin-top:8px;">
+            🔄 Verifica Connessioni
+          </button>
+        </div>
+
+        <!-- ── Reset ── -->
+        <div class="settings-group">
+          <div class="settings-group-title">⚠️ Reset</div>
+          <button class="btn-danger" onclick="resetAllSettings()" style="width:100%;">
+            🗑️ Cancella tutte le impostazioni locali
+          </button>
+        </div>
+      </section>
+
     </div><!-- /sidebar-body -->
 
     <footer class="sidebar-footer">
