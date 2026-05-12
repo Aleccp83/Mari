@@ -381,9 +381,15 @@ async function loadLatestSentinel() {
 
   } catch (err) {
     console.warn('[Sentinel]', err.message);
-    loadSentinelFallback();
+    // Usa fallback DLR solo se abilitato nelle impostazioni
+    if (localStorage.getItem('argus_fallback_dlr') !== 'false') {
+      loadSentinelFallback();
+    } else {
+      updateSentinelStatus('error', 'Sentinel Hub non disponibile (fallback disabilitato)');
+    }
   } finally {
     showSpinner(false);
+    setTimeout(forceHideSpinner, 8000);
   }
 }
 
@@ -464,6 +470,11 @@ function loadSARLayer(date, opacity) {
  * Fallback DLR per tutti gli indici selezionati.
  */
 function loadSentinelFallback() {
+  // Rispetta il flag fallbackDLR dalle impostazioni
+  if (localStorage.getItem('argus_fallback_dlr') === 'false') {
+    updateSentinelStatus('error', 'Sentinel Hub offline — fallback DLR disabilitato');
+    return;
+  }
   clearSentinelLayers();
   for (let i = 0; i < state.selectedIndices.length; i++) {
     const key  = state.selectedIndices[i];
@@ -748,14 +759,18 @@ async function searchComune() {
   const sidebar = document.getElementById('sidebar');
   if (sidebar && sidebar.classList.contains('open')) toggleSidebar();
 
+  // Reset flag bloccante prima di qualsiasi operazione
+  state.autoAnalysisRunning = false;
+  state.deepScanRunning     = false;
+
   // Rimuovi tutti i layer della ricerca precedente
-  if (state.riskZonesLayer)  { state.map.removeLayer(state.riskZonesLayer); state.riskZonesLayer = null; }
-  if (state.hotspotLayer)    { state.map.removeLayer(state.hotspotLayer);   state.hotspotLayer = null; }
+  if (state.riskZonesLayer)  { try { state.map.removeLayer(state.riskZonesLayer); } catch(e){} state.riskZonesLayer = null; }
+  if (state.hotspotLayer)    { try { state.map.removeLayer(state.hotspotLayer);   } catch(e){} state.hotspotLayer = null; }
   clearHitlMarkers();
   clearSentinelLayers();
   // Rimuovi layer rischio manuale (acqua, strade, sentieri)
   ['water','roads','paths','nearbyPaths'].forEach(function(k) {
-    if (state.riskLayers[k]) { state.map.removeLayer(state.riskLayers[k]); delete state.riskLayers[k]; }
+    if (state.riskLayers[k]) { try { state.map.removeLayer(state.riskLayers[k]); } catch(e){} delete state.riskLayers[k]; }
   });
   // Reset stato hotspot/scanner
   state.hotspots = [];
@@ -803,12 +818,15 @@ async function searchComune() {
     const centerLat = parseFloat(place.lat);
     const centerLng = parseFloat(place.lon);
     const bb = place.boundingbox;
-    const radiusKm = bb
-      ? Math.min(15, Math.max(3, turf.distance(
+    let radiusKm = 5;
+    if (bb) {
+      try {
+        radiusKm = Math.min(15, Math.max(3, turf.distance(
           turf.point([parseFloat(bb[2]), parseFloat(bb[0])]),
           turf.point([parseFloat(bb[3]), parseFloat(bb[1])]),
-          { units:'kilometers' }) / 2))
-      : 5;
+          { units:'kilometers' }) / 2));
+      } catch(e) { radiusKm = 5; }
+    }
     setTimeout(() => loadLatestSentinel(), 600);
     setTimeout(() => runAutoRiskAnalysis(centerLat, centerLng, radiusKm), 1200);
     // Auto Deep Scan se abilitato nelle impostazioni
@@ -820,6 +838,8 @@ async function searchComune() {
     showToast('Errore di rete.', 'error');
   } finally {
     showSpinner(false);
+    // Safety net: dopo 10s forza lo spegnimento dello spinner
+    setTimeout(forceHideSpinner, 10000);
   }
 }
 
@@ -829,15 +849,22 @@ async function searchComune() {
 async function runAutoRiskAnalysis(lat, lng, radiusKm = 5) {
   if (state.autoAnalysisRunning) return;
   state.autoAnalysisRunning = true;
-  if (state.riskZonesLayer) { state.map.removeLayer(state.riskZonesLayer); state.riskZonesLayer = null; }
+  if (state.riskZonesLayer) { try { state.map.removeLayer(state.riskZonesLayer); } catch(e){} state.riskZonesLayer = null; }
   const degOffset = radiusKm / 111.0;
   const bbox = `${lat-degOffset},${lng-degOffset},${lat+degOffset},${lng+degOffset}`;
   updateAnalysisStatus('running', `Analisi ${radiusKm}km in corso...`);
-  showToast('�� Analisi zone sospette avviata...', 'info', 3000);
+
+  // Yield al browser prima di iniziare il lavoro pesante
+  await new Promise(r => setTimeout(r, 0));
+
   try {
     const [waterF, roadF, pathF] = await Promise.all([
       fetchWaterways(bbox), fetchMainRoads(bbox), fetchPaths(bbox)
     ]);
+
+    // Yield di nuovo dopo le fetch (potrebbero essere lente)
+    await new Promise(r => setTimeout(r, 0));
+
     const candidates = generateCandidateGrid(lat, lng, radiusKm, 0.15);
     const riskZones = candidates
       .map(pt => ({ point:pt, score:computeRiskScore(pt, waterF, roadF, pathF) }))
@@ -883,15 +910,22 @@ async function runAutoRiskAnalysis(lat, lng, radiusKm = 5) {
     showToast('Errore durante l\'analisi.', 'error');
   } finally {
     state.autoAnalysisRunning = false;
+    setTimeout(forceHideSpinner, 8000);
   }
 }
 
 function generateCandidateGrid(cLat, cLng, radiusKm, stepKm) {
-  const candidates = [], stepDeg = stepKm/111.0, radiusDeg = radiusKm/111.0;
-  for (let dlat = -radiusDeg; dlat <= radiusDeg; dlat += stepDeg)
-    for (let dlng = -radiusDeg; dlng <= radiusDeg; dlng += stepDeg)
-      if (Math.sqrt(dlat*dlat+dlng*dlng) <= radiusDeg)
-        candidates.push({ lat:cLat+dlat, lng:cLng+dlng });
+  // Forza step minimo 0.4km e limita i candidati a 400 per evitare freeze del thread
+  const safeStep = Math.max(stepKm, 0.4);
+  const candidates = [], stepDeg = safeStep / 111.0, radiusDeg = radiusKm / 111.0;
+  for (let dlat = -radiusDeg; dlat <= radiusDeg; dlat += stepDeg) {
+    for (let dlng = -radiusDeg; dlng <= radiusDeg; dlng += stepDeg) {
+      if (Math.sqrt(dlat * dlat + dlng * dlng) <= radiusDeg) {
+        candidates.push({ lat: cLat + dlat, lng: cLng + dlng });
+        if (candidates.length >= 400) return candidates; // hard cap
+      }
+    }
+  }
   return candidates;
 }
 
@@ -1961,8 +1995,22 @@ function toggleSidebar() {
   document.getElementById('sidebarOverlay').classList.toggle('active');
 }
 function showSpinner(v) {
+  // Contatore: lo spinner rimane attivo finché almeno un'operazione è in corso
+  if (typeof showSpinner._count === 'undefined') showSpinner._count = 0;
+  if (v) {
+    showSpinner._count++;
+  } else {
+    showSpinner._count = Math.max(0, showSpinner._count - 1);
+  }
   const el = document.getElementById('spinner');
-  if (el) el.classList.toggle('active', v);
+  if (el) el.classList.toggle('active', showSpinner._count > 0);
+}
+
+// Forza lo spinner a spegnersi (usato come safety net)
+function forceHideSpinner() {
+  if (typeof showSpinner._count !== 'undefined') showSpinner._count = 0;
+  const el = document.getElementById('spinner');
+  if (el) el.classList.remove('active');
 }
 function showToast(msg, type='info', dur=3500) {
   const t = document.getElementById('toast');
@@ -2724,8 +2772,13 @@ async function uploadToGlobalDataset(data) {
   const token = LEARNING_CONFIG.token || localStorage.getItem('argus_gh_token');
 
   if (!repo || !token) {
-    showToast('⚙️ Configura repo e token nelle impostazioni.', 'error', 5000);
-    promptTokenConfig();
+    // Non aprire prompt automatici — l'utente configura dalle Impostazioni
+    console.warn('[Upload] Token GitHub non configurato. Vai in Impostazioni per configurarlo.');
+    // Aggiorna status nella sezione apprendimento
+    const dot = document.getElementById('learningDot');
+    const txt = document.getElementById('learningStatusText');
+    if (dot) dot.className = 'learning-dot warn';
+    if (txt) txt.textContent = 'Token non configurato — vai in Impostazioni';
     return false;
   }
 
@@ -2954,16 +3007,27 @@ function initSettings() {
   if (repoEl)  repoEl.value  = repo;
   if (tokenEl) tokenEl.value = token;
 
-  // Carica impostazioni sinergia
-  const autoScan   = localStorage.getItem('argus_auto_scan')   === 'true';
-  const autoUpload = localStorage.getItem('argus_auto_upload') === 'true';
-  const el1 = document.getElementById('settingsAutoScan');
-  const el2 = document.getElementById('settingsAutoUpload');
-  if (el1) el1.checked = autoScan;
-  if (el2) el2.checked = autoUpload;
+  // Carica impostazioni sinergia (con default corretti)
+  const autoScan     = localStorage.getItem('argus_auto_scan')    === 'true';
+  const autoUpload   = localStorage.getItem('argus_auto_upload')  === 'true';
+  const fallbackDLR  = localStorage.getItem('argus_fallback_dlr')   !== 'false';  // default true
+  const fallbackMODIS= localStorage.getItem('argus_fallback_modis') !== 'false';  // default true
+
+  const elAutoScan     = document.getElementById('settingsAutoScan');
+  const elAutoUpload   = document.getElementById('settingsAutoUpload');
+  const elFallbackDLR  = document.getElementById('settingsFallbackDLR');
+  const elFallbackMODIS= document.getElementById('settingsFallbackMODIS');
+  if (elAutoScan)      elAutoScan.checked      = autoScan;
+  if (elAutoUpload)    elAutoUpload.checked    = autoUpload;
+  if (elFallbackDLR)   elFallbackDLR.checked   = fallbackDLR;
+  if (elFallbackMODIS) elFallbackMODIS.checked = fallbackMODIS;
 
   // Aggiorna status GitHub
   updateSettingsGhStatus(repo && token);
+
+  // Aggiorna status dot satelliti
+  const s2Dot = document.getElementById('statusDotS2');
+  if (s2Dot) s2Dot.className = 'sentinel-dot ok'; // S2 sempre disponibile
 }
 
 function saveGitHubSettings() {
@@ -3064,19 +3128,26 @@ function toggleTokenVisibility() {
 }
 
 function saveSynergySettings() {
-  const autoScan   = document.getElementById('settingsAutoScan')?.checked   || false;
-  const autoUpload = document.getElementById('settingsAutoUpload')?.checked || false;
-  localStorage.setItem('argus_auto_scan',   autoScan);
-  localStorage.setItem('argus_auto_upload', autoUpload);
+  const elAutoScan      = document.getElementById('settingsAutoScan');
+  const elAutoUpload    = document.getElementById('settingsAutoUpload');
+  const elFallbackDLR   = document.getElementById('settingsFallbackDLR');
+  const elFallbackMODIS = document.getElementById('settingsFallbackMODIS');
+
+  // Salva solo se l'elemento esiste — altrimenti mantieni il valore precedente
+  if (elAutoScan)      localStorage.setItem('argus_auto_scan',      elAutoScan.checked);
+  if (elAutoUpload)    localStorage.setItem('argus_auto_upload',    elAutoUpload.checked);
+  if (elFallbackDLR)   localStorage.setItem('argus_fallback_dlr',   elFallbackDLR.checked);
+  if (elFallbackMODIS) localStorage.setItem('argus_fallback_modis', elFallbackMODIS.checked);
 }
 
 // Legge le impostazioni sinergia (usato da searchComune e hitlConfirm)
+// Legge SOLO da localStorage — non accede al DOM per evitare errori se la sidebar è chiusa
 function getSynergySettings() {
   return {
-    autoScan:   localStorage.getItem('argus_auto_scan')   === 'true',
-    autoUpload: localStorage.getItem('argus_auto_upload') === 'true',
-    fallbackDLR:   document.getElementById('settingsFallbackDLR')?.checked   !== false,
-    fallbackMODIS: document.getElementById('settingsFallbackMODIS')?.checked !== false
+    autoScan:      localStorage.getItem('argus_auto_scan')    === 'true',
+    autoUpload:    localStorage.getItem('argus_auto_upload')  === 'true',
+    fallbackDLR:   localStorage.getItem('argus_fallback_dlr')   !== 'false',  // default true
+    fallbackMODIS: localStorage.getItem('argus_fallback_modis') !== 'false'   // default true
   };
 }
 
@@ -3143,6 +3214,15 @@ function resetAllSettings() {
   if (tokenEl) tokenEl.value = '';
   LEARNING_CONFIG.repo  = '';
   LEARNING_CONFIG.token = '';
+  // Ripristina default checkbox
+  const elFallbackDLR   = document.getElementById('settingsFallbackDLR');
+  const elFallbackMODIS = document.getElementById('settingsFallbackMODIS');
+  const elAutoScan      = document.getElementById('settingsAutoScan');
+  const elAutoUpload    = document.getElementById('settingsAutoUpload');
+  if (elFallbackDLR)   elFallbackDLR.checked   = true;
+  if (elFallbackMODIS) elFallbackMODIS.checked = true;
+  if (elAutoScan)      elAutoScan.checked      = false;
+  if (elAutoUpload)    elAutoUpload.checked    = false;
   updateSettingsGhStatus(false);
   showToast('🗑️ Impostazioni resettate. I siti sono stati mantenuti.', 'info', 5000);
 }
